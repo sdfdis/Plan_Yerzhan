@@ -595,6 +595,11 @@ const R_DEF = {
   pred:['ПАЗ','КИР','АксЗФ','ШК','ERG Service','ССГПО','ERGS','КЭЗ','ДГОК','АктЗФ','ЕЭК','ЭС','ПМЗ','РММЗ','ССГПО ГБЖ','все предприятия','Аксу','Рудный','АО «ССГПО»','АО «АК»','АО «ШК»']
 };
 const R = {emp:[],gph:[],vid:[],tip:[],stat:[],pvp:[],pred:[]};
+// ── SUPABASE CONFIG ────────────────────────────────────────
+// Заполните один раз — все пользователи подключатся автоматически
+const SUPA_URL = 'https://ackgozjmkwrcmvvxadus.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFja2dvempta3dyY212dnhhZHVzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3NDk3MDUsImV4cCI6MjA5MzMyNTcwNX0.KjxP23Dx_reMxqWJVc-824HAYJhRLhnxDo0rL_o5Vtg';
+
 // ── SUPABASE ───────────────────────────────────────────────
 let dbClient = null;
 
@@ -655,8 +660,9 @@ async function connectDB(){
 }
 
 function tryInitDB(){
-  const url=localStorage.getItem('supa_url');
-  const key=localStorage.getItem('supa_key');
+  // Сначала проверяем вшитые константы, потом localStorage
+  const url=SUPA_URL||localStorage.getItem('supa_url');
+  const key=SUPA_KEY||localStorage.getItem('supa_key');
   if(!url||!key) return false;
   try{dbClient=supabase.createClient(url,key);return true;}
   catch(e){console.error('Supabase init:',e);return false;}
@@ -1342,6 +1348,11 @@ function notify(msg,type){const el=document.createElement('div');el.className='n
 document.addEventListener('click',e=>{if(!e.target.closest('.ms-wrap'))closeAllDrops();});
 
 async function init(){
+  // Если credentials вшиты — прячем кнопку настройки (не нужна пользователям)
+  const hardcoded=!!(SUPA_URL&&SUPA_KEY);
+  const dbBtn=document.querySelector('.sb-btn[onclick="showDBSetup()"]');
+  if(hardcoded&&dbBtn) dbBtn.style.display='none';
+
   // 1. Локальные данные — сразу рендерим без задержки
   loadRLocal();
   loadLocal();
@@ -1356,8 +1367,8 @@ async function init(){
     await loadDataFromDB();
     showLoader(false);
     syncUserSel();updBg();render();
-  }else if(!localStorage.getItem('supa_skip')){
-    // Первый запуск — предлагаем настроить
+  }else if(!hardcoded&&!localStorage.getItem('supa_skip')){
+    // Только если не вшито — предлагаем настроить вручную
     showDBSetup();
   }
 
