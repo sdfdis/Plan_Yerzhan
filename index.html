@@ -840,7 +840,7 @@ function updateSaveUI(){
     time.textContent = 'Сохранено в ' + S.lastSaved.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
     next.textContent = dbClient ? 'Авто через ' + countdownVal + ' с' : '';
     if(btn){ btn.disabled = false; btn.textContent = '✓ Сохранено'; btn.className = 'save-manual-btn ok-state';
-      setTimeout(()=>{ if(btn) btn.textContent = '💾 Сохранить'; btn.className = 'save-manual-btn'; }, 3000); }
+      setTimeout(()=>{ if(btn){ btn.textContent = '💾 Сохранить'; btn.className = 'save-manual-btn'; }}, 3000); }
   } else {
     dot.className  = 'save-dot';
     time.textContent = 'Нет данных';
@@ -898,7 +898,7 @@ function startAutoSave(){
   // каждые 45 сек — полный sync
   autoSaveTimer = setInterval(async ()=>{
     countdownVal = 45;
-    if(S.dirty || dbClient) await saveAll();
+    if(S.dirty) await saveAll();
   }, 45000);
 }
 
@@ -1004,7 +1004,7 @@ const VNORM={'Методологическое сопровождение':'Ме
 const SNORM={'Завершена':'Завершено','в работе':'В работе','Не начата':'Не начато','Доработа':'Доработка','Завершена ':'Завершено'};
 function nv(v){return (v&&VNORM[v.trim()])?VNORM[v.trim()]:(v||'').trim();}
 function ns_(s){const t=(s||'').trim();return SNORM[t]||t||'Не начато';}
-function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 function genId(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8);}
 
 // ── STATE ──────────────────────────────────────────────────
@@ -1328,11 +1328,11 @@ function renderCharts(){
 function renderDL(){
   const now=new Date();now.setHours(0,0,0,0);
   const d30=new Date(now);d30.setDate(d30.getDate()+30);
-  const items=S.shtat.filter(r=>{const d=new Date(r.dateEndPlan||'');return !isNaN(d)&&d<=d30&&ns_(r.status)!=='Завершено';}).sort((a,b)=>new Date(a.dateEndPlan)-new Date(b.dateEndPlan)).slice(0,10);
+  const items=[...S.shtat.filter(r=>{const d=new Date(r.dateEndPlan||'');return !isNaN(d)&&d<=d30&&ns_(r.status)!=='Завершено';}), ...S.gph.filter(r=>{const d=new Date(r.dateEnd||'');return !isNaN(d)&&d<=d30&&ns_(r.status)!=='Завершено';})].sort((a,b)=>new Date(a.dateEndPlan||a.dateEnd)-new Date(b.dateEndPlan||b.dateEnd)).slice(0,10);
   const el=document.getElementById('dlList');
   if(!items.length){el.innerHTML='<div style="color:var(--t3);font-size:13px;padding:20px;text-align:center">Нет предстоящих дедлайнов 🎉</div>';return;}
   el.innerHTML=items.map(r=>{
-    const d=new Date(r.dateEndPlan);const diff=Math.round((d-now)/86400000);
+    const d=new Date(r.dateEndPlan||r.dateEnd);const diff=Math.round((d-now)/86400000);
     const cls=diff<0?'ov':diff<=7?'sn':'up';
     const lbl=diff<0?`${Math.abs(diff)}д назад`:diff===0?'Сегодня':`${diff}д`;
     const lclr=diff<0?'#dc2626':diff<=7?'#d97706':'#2563eb';
@@ -1368,7 +1368,7 @@ function cfgCard({key,icon,label,hint}){
     ?items.map((v,i)=>`
       <div class="cfg-item">
         <span class="cfg-item-lbl" title="${esc(v)}">${esc(v)}</span>
-        <button class="cfg-del" onclick="removeRef('${key}',${i})" title="Удалить">✕</button>
+        <button class="cfg-del" onclick="removeRef('${key}','${esc(v)}')" title="Удалить">✕</button>
       </div>`).join('')
     :'<div class="cfg-empty">Список пуст</div>';
   return `<div class="cfg-c">
@@ -1403,9 +1403,9 @@ function addRef(key){
   notify(`Добавлено: ${val}`,'success');
 }
 
-function removeRef(key,idx){
-  const val=R[key][idx];
-  if(!val)return;
+function removeRef(key,val){
+  const idx=R[key].indexOf(val);
+  if(idx===-1)return;
   if(!confirm(`Удалить «${val}» из справочника?`))return;
   R[key].splice(idx,1);
   dbSaveRef();
@@ -1550,7 +1550,7 @@ function doImportExcel(inp){
   const rd=new FileReader();
   rd.onload=async e=>{
     try{
-      const wb=XLSX.read(e.target.result,{type:'binary',cellDates:true});
+      const wb=XLSX.read(e.target.result,{type:'array',cellDates:true});
       let ns=0,ng=0;
       const ws=wb.Sheets['Штат'];
       if(ws){const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});for(let i=1;i<rows.length;i++){const r=rows[i];if(!r[1]&&!r[4])continue;const rec={id:genId(),fio:String(r[1]||'').trim(),vidRaboty:nv(String(r[2]||'').trim()),tipOR:String(r[3]||'').trim(),navOR:String(r[4]||'').trim(),predpriyatie:String(r[5]||'').trim(),planVnePlan:String(r[6]||'').trim(),dateStartPlan:pdate(r[7]),dateEndPlan:pdate(r[8]),dateStartFact:pdate(r[9]),dateEndFact:pdate(r[10]),status:ns_(String(r[11]||'Не начато').trim()),kommentarii:String(r[12]||'').trim(),createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};if(rec.navOR){S.shtat.push(rec);ns++;}}}
@@ -1570,7 +1570,7 @@ function doImportExcel(inp){
       render();notify(`Импорт Excel: Штат +${ns}, ГПХ +${ng} ✓`,'success');
     }catch(ex){console.error(ex);notify('Ошибка импорта Excel','error');}
     inp.value='';
-  };rd.readAsBinaryString(f);
+  };rd.readAsArrayBuffer(f);
 }
 function exportExcel(){
   const wb=XLSX.utils.book_new();
@@ -1624,11 +1624,18 @@ async function init(){
   if(hasDB){
     setDbStatus('ok');
     showLoader(true,'Загрузка данных из Supabase…');
-    await loadRefFromDB();
-    await loadDataFromDB();
-    showLoader(false);
-    syncUserSel();updBg();render();
-    markSaved();
+    try{
+      await loadRefFromDB();
+      await loadDataFromDB();
+      markSaved();
+    }catch(e){
+      console.error('init DB load:',e);
+      notify('Ошибка загрузки из Supabase — работаем офлайн','error');
+      setDbStatus('err');
+    }finally{
+      showLoader(false);
+      syncUserSel();updBg();render();
+    }
   }else if(!hardcoded&&!localStorage.getItem('supa_skip')){
     // Только если не вшито — предлагаем настроить вручную
     showDBSetup();
