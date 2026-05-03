@@ -357,6 +357,71 @@ textarea.fc{resize:vertical;min-height:64px}
 .kb-acts{display:flex;gap:3px;margin-top:8px;justify-content:flex-end}
 .kb-empty{color:var(--t3);font-size:12px;text-align:center;padding:20px 8px;font-style:italic;pointer-events:none}
 
+/* MOBILE */
+.ham-btn{display:none;width:36px;height:36px;border:none;background:transparent;cursor:pointer;border-radius:var(--rs);flex-direction:column;align-items:center;justify-content:center;gap:5px;flex-shrink:0;padding:0}
+.ham-btn span{display:block;width:20px;height:2px;background:var(--t2);border-radius:2px;transition:all .2s}
+.sb-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:98}
+.sb-backdrop.show{display:block}
+
+@media(max-width:768px){
+  :root{--sbw:248px}
+  body{overflow:hidden}
+
+  .sb{position:fixed;left:calc(-1 * var(--sbw) - 10px);top:0;height:100dvh;z-index:99;transition:left .25s ease;box-shadow:none}
+  .sb.open{left:0;box-shadow:4px 0 24px rgba(0,0,0,.3)}
+
+  .ham-btn{display:flex}
+  .main{width:100vw}
+
+  .topbar{padding:0 12px;gap:8px;height:50px}
+  .topbar-title{font-size:14px}
+  .srch{width:130px;font-size:12px}
+
+  .fbar{flex-wrap:nowrap;overflow-x:auto;padding:8px 12px;gap:5px;-webkit-overflow-scrolling:touch}
+  .fbar::-webkit-scrollbar{height:0}
+
+  .rcount{padding:4px 12px;font-size:11px}
+
+  .dash-wrap{padding:12px}
+  .kpi-g{grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px}
+  .kpi-c{padding:11px 12px}
+  .kpi-v{font-size:20px}
+  .ch-g{grid-template-columns:1fr;gap:10px}
+  .ch-full{grid-column:1}
+  .ch-w{height:200px}
+
+  .mo{padding:0;align-items:flex-end}
+  .modal{border-radius:var(--r) var(--r) 0 0;max-height:92dvh;display:flex;flex-direction:column;width:100%}
+  .mb{flex:1;overflow-y:auto;max-height:none;padding:16px}
+  .mf{padding:12px 16px}
+  .fg{grid-template-columns:1fr}
+  .fg-group.full{grid-column:1}
+
+  .cfg-wrap{padding:12px}
+  .cfg-g{grid-template-columns:1fr}
+
+  .mgr-wrap{padding:12px;max-width:100%}
+
+  .kb-wrap{padding:12px}
+  .kb-col{width:220px;min-width:220px}
+
+  .ib{width:32px;height:32px}
+
+  .cc-overlay{padding:16px}
+  .cc-box{padding:22px 18px 18px}
+
+  .db-setup{padding:0;align-items:flex-end}
+  .db-box{border-radius:var(--r) var(--r) 0 0;max-height:90dvh;overflow-y:auto;width:100%}
+}
+
+@media(max-width:480px){
+  .srch{width:110px}
+  .kpi-v{font-size:18px}
+  .kpi-l{font-size:9px}
+  .kpi-s{display:none}
+  .tc-cm{display:none}
+}
+
 /* CLEAR CONFIRM */
 .cc-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:300;display:none;align-items:flex-end;justify-content:center;padding:24px}
 .cc-overlay.show{display:flex}
@@ -418,6 +483,9 @@ textarea.fc{resize:vertical;min-height:64px}
 
 <main class="main">
   <div class="topbar">
+    <button class="ham-btn" id="hamBtn" onclick="toggleSidebar()" aria-label="Меню">
+      <span></span><span></span><span></span>
+    </button>
     <div class="topbar-title" id="pgtitle">Штат</div>
     <div class="tb-sep"></div>
     <div class="srch-wrap" id="srchWrap">
@@ -685,6 +753,8 @@ create policy "anon_all" on or_backups
   </div>
 </div>
 
+<div class="sb-backdrop" id="sbBackdrop" onclick="closeSidebar()"></div>
+
 <!-- Clear All Confirm -->
 <div class="cc-overlay" id="ccOverlay">
   <div class="cc-box">
@@ -792,22 +862,24 @@ function copySql(){
 async function loadDataFromDB(){
   if(!dbClient) return;
   try{
-    const [sr,gr,cr]=await Promise.all([
+    const [sr,gr]=await Promise.all([
       dbClient.from('or_shtat').select('data').order('updated_at',{ascending:true}),
       dbClient.from('or_gph').select('data').order('updated_at',{ascending:true}),
-      dbClient.from('or_content').select('data').order('updated_at',{ascending:true}),
     ]);
     if(sr.error) throw sr.error;
     if(gr.error) throw gr.error;
-    if(cr.error) throw cr.error;
     S.shtat=(sr.data||[]).map(r=>r.data);
     S.gph=(gr.data||[]).map(r=>r.data);
-    S.content=(cr.data||[]).map(r=>r.data);
   }catch(e){
     console.error('loadDataFromDB:',e);
     notify('Ошибка загрузки данных: '+e.message,'error');
     setDbStatus('err');
   }
+  // or_content загружаем отдельно — таблица могла ещё не быть создана
+  try{
+    const cr=await dbClient.from('or_content').select('data').order('updated_at',{ascending:true});
+    if(!cr.error) S.content=(cr.data||[]).map(r=>r.data);
+  }catch(e){ console.warn('or_content unavailable:',e); }
 }
 
 async function loadRefFromDB(){
@@ -1111,6 +1183,7 @@ const TABS=['shtat','gph','dash','cfg','cnt','mgr'];
 const TITLES={shtat:'Штат',gph:'ГПХ — Подрядчики',dash:'Дашборд',cfg:'Справочники',cnt:'Контент-план',mgr:'Менеджер'};
 function go(tab){
   S.tab=tab;
+  closeSidebar();
   TABS.forEach(t=>{document.getElementById('nav-'+t)?.classList.toggle('active',t===tab);document.getElementById('tab-'+t)?.classList.toggle('active',t===tab);});
   document.getElementById('pgtitle').textContent=TITLES[tab];
   const tbl=['shtat','gph'].includes(tab);
@@ -1831,6 +1904,18 @@ async function delContent(id){
 }
 
 function notify(msg,type){const el=document.createElement('div');el.className='notif'+(type?' '+type:'');el.textContent=msg;document.body.appendChild(el);setTimeout(()=>{el.style.opacity='0';el.style.transition='opacity .3s';setTimeout(()=>el.remove(),300);},3000);}
+
+// ── MOBILE SIDEBAR ─────────────────────────────────────────
+function toggleSidebar(){
+  const sb=document.querySelector('.sb');
+  const bd=document.getElementById('sbBackdrop');
+  const open=sb.classList.toggle('open');
+  bd.classList.toggle('show',open);
+}
+function closeSidebar(){
+  document.querySelector('.sb').classList.remove('open');
+  document.getElementById('sbBackdrop').classList.remove('show');
+}
 
 // close drops on outside click
 document.addEventListener('click',e=>{if(!e.target.closest('.ms-wrap'))closeAllDrops();});
