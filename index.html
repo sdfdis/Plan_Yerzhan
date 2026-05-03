@@ -291,6 +291,34 @@ textarea.fc{resize:vertical;min-height:64px}
 .db-err{background:#fef2f2;border:1px solid #fca5a5;border-radius:var(--rs);padding:8px 12px;font-size:12px;color:#b91c1c;margin-bottom:12px;display:none}
 .db-err.show{display:block}
 
+/* SAVE STATUS BAR */
+.save-bar{padding:8px 10px;border-top:1px solid rgba(255,255,255,.07)}
+.save-row{display:flex;align-items:center;gap:7px;margin-bottom:5px}
+.save-dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.2);flex-shrink:0;transition:background .3s}
+.save-dot.ok{background:#22c55e}
+.save-dot.dirty{background:#f59e0b;animation:sdpulse 1.4s infinite}
+.save-dot.saving{background:#60a5fa;animation:sdpulse .55s infinite}
+.save-dot.err{background:#ef4444}
+@keyframes sdpulse{0%,100%{opacity:1}50%{opacity:.3}}
+.save-texts{flex:1;min-width:0}
+.save-time-txt{font-size:10.5px;color:rgba(255,255,255,.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.4}
+.save-next-txt{font-size:10px;color:rgba(255,255,255,.25);line-height:1.4}
+.save-manual-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:6px;padding:6px 10px;border-radius:var(--rs);border:1px solid rgba(255,255,255,.14);background:transparent;color:rgba(255,255,255,.65);font-family:var(--font);font-size:12px;cursor:pointer;transition:all .15s;white-space:nowrap}
+.save-manual-btn:hover:not(:disabled){background:rgba(255,255,255,.09);color:#fff;border-color:rgba(255,255,255,.3)}
+.save-manual-btn:disabled{opacity:.45;cursor:default}
+.save-manual-btn.ok-state{border-color:rgba(34,197,94,.4);color:#4ade80}
+
+/* BACKUP LIST */
+.bk-list{display:flex;flex-direction:column;gap:6px;margin-top:10px;max-height:260px;overflow-y:auto}
+.bk-empty{color:var(--t3);font-size:12.5px;text-align:center;padding:18px 0}
+.bk-item{display:flex;align-items:center;gap:10px;padding:10px 13px;border-radius:var(--rs);background:var(--bg);border:1px solid var(--bd);font-size:12.5px;transition:background .1s}
+.bk-item:hover{background:#f0f3f7}
+.bk-icon{font-size:18px;flex-shrink:0}
+.bk-info{flex:1;min-width:0}
+.bk-label{font-weight:500;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bk-meta{font-size:11px;color:var(--t3);margin-top:2px}
+.bk-acts{display:flex;gap:4px;flex-shrink:0}
+
 /* DB STATUS in sidebar */
 .db-status-bar{display:flex;align-items:center;gap:6px;margin:0 10px 6px;padding:5px 9px;border-radius:var(--rs);font-size:11px;font-weight:500;transition:all .2s;cursor:default}
 .db-status-bar.ok{background:rgba(34,197,94,.12);color:#16a34a}
@@ -331,6 +359,16 @@ textarea.fc{resize:vertical;min-height:64px}
     <div class="nav-it" onclick="go('mgr')" id="nav-mgr"><span class="ni">⚙️</span>Менеджер</div>
   </nav>
   <div class="sb-bot">
+    <div class="save-bar">
+      <div class="save-row">
+        <div class="save-dot" id="saveDot"></div>
+        <div class="save-texts">
+          <div class="save-time-txt" id="saveTimeTxt">Не сохранено</div>
+          <div class="save-next-txt" id="saveNextTxt"></div>
+        </div>
+      </div>
+      <button class="save-manual-btn" id="saveManualBtn" onclick="manualSave()">💾 Сохранить</button>
+    </div>
     <div class="db-status-bar local" id="dbStatusBar">
       <div class="db-status-dot"></div>
       <span id="dbStatusTxt">Локально</span>
@@ -494,6 +532,16 @@ textarea.fc{resize:vertical;min-height:64px}
           <input type="file" id="iMerge" accept=".json" multiple onchange="doMergeJSON(this)" style="display:none">
         </div>
         <div class="mgr-c">
+          <h3>💾 Управление сохранениями</h3>
+          <p>Автосохранение каждые 45 сек. Создавайте бекапы вручную — они хранятся в Supabase и доступны с любого устройства.</p>
+          <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+            <button class="btn btn-p" onclick="manualSave()">💾 Сохранить сейчас</button>
+            <button class="btn btn-g" onclick="createBackup()">📦 Создать бекап</button>
+            <button class="btn btn-g" onclick="renderSaveMgr()">🔄 Обновить список</button>
+          </div>
+          <div id="saveMgrWrap"><div class="bk-empty">Загрузка…</div></div>
+        </div>
+        <div class="mgr-c">
           <h3>🔌 Настройка Supabase</h3>
           <p>Выполните этот SQL в редакторе Supabase (<strong>SQL Editor → New query</strong>), чтобы создать нужные таблицы.</p>
           <div class="sql-block" id="sqlBlock">-- 1. Создайте проект на supabase.com
@@ -527,6 +575,19 @@ create policy "anon_all" on or_shtat
 create policy "anon_all" on or_gph
   for all using (true) with check (true);
 create policy "anon_all" on or_ref
+  for all using (true) with check (true);
+
+-- Таблица бекапов
+create table if not exists or_backups (
+  id text primary key,
+  created_at timestamptz default now(),
+  label text,
+  shtat_count integer default 0,
+  gph_count integer default 0,
+  data jsonb not null default '{}'
+);
+alter table or_backups enable row level security;
+create policy "anon_all" on or_backups
   for all using (true) with check (true);<button class="sql-copy" onclick="copySql()">Копировать</button></div>
           <p style="font-size:12px;color:var(--t3);margin-top:8px">После выполнения SQL нажмите <strong>«🔌 База данных»</strong> в боковом меню и введите URL и anon-ключ проекта.</p>
         </div>
@@ -719,19 +780,212 @@ async function dbUpsert(table,rec){
   const i=arr.findIndex(r=>r.id===rec.id);
   if(i!==-1) arr[i]=rec; else arr.push(rec);
   updBg();
+  markDirty();
   localStorage.setItem('or_'+table,JSON.stringify(arr));
   if(!dbClient) return;
   const {error}=await dbClient.from('or_'+table).upsert({id:rec.id,data:rec,updated_at:rec.updatedAt});
   if(error){setDbStatus('err');throw error;}
+  markSaved();
 }
 
 async function dbDelete(table,id){
   S[table]=S[table].filter(r=>r.id!==id);
   updBg();
+  markDirty();
   localStorage.setItem('or_'+table,JSON.stringify(S[table]));
   if(!dbClient) return;
   const {error}=await dbClient.from('or_'+table).delete().eq('id',id);
-  if(error){setDbStatus('err');console.error('dbDelete:',error);}
+  if(error){setDbStatus('err');console.error('dbDelete:',error);return;}
+  markSaved();
+}
+
+// ── SAVE MANAGEMENT ───────────────────────────────────────
+let autoSaveTimer = null;
+let countdownVal  = 45;
+let countdownTick = null;
+
+function markDirty(){
+  S.dirty = true;
+  updateSaveUI();
+}
+
+function markSaved(){
+  S.dirty     = false;
+  S.lastSaved = new Date();
+  localStorage.setItem('or_last_saved', S.lastSaved.toISOString());
+  countdownVal = 45;
+  updateSaveUI();
+}
+
+function updateSaveUI(){
+  const dot  = document.getElementById('saveDot');
+  const time = document.getElementById('saveTimeTxt');
+  const next = document.getElementById('saveNextTxt');
+  const btn  = document.getElementById('saveManualBtn');
+  if(!dot) return;
+
+  if(S.saving){
+    dot.className  = 'save-dot saving';
+    time.textContent = 'Сохранение…';
+    next.textContent = '';
+    if(btn){ btn.disabled = true; btn.textContent = '⏳ Сохранение…'; btn.className = 'save-manual-btn'; }
+  } else if(S.dirty){
+    dot.className  = 'save-dot dirty';
+    const ls = S.lastSaved ? 'посл. ' + S.lastSaved.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}) : 'ещё не сохранено';
+    time.textContent = 'Есть изменения (' + ls + ')';
+    next.textContent = dbClient ? 'Авто через ' + countdownVal + ' с' : '';
+    if(btn){ btn.disabled = false; btn.textContent = '💾 Сохранить'; btn.className = 'save-manual-btn'; }
+  } else if(S.lastSaved){
+    dot.className  = 'save-dot ok';
+    time.textContent = 'Сохранено в ' + S.lastSaved.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    next.textContent = dbClient ? 'Авто через ' + countdownVal + ' с' : '';
+    if(btn){ btn.disabled = false; btn.textContent = '✓ Сохранено'; btn.className = 'save-manual-btn ok-state';
+      setTimeout(()=>{ if(btn) btn.textContent = '💾 Сохранить'; btn.className = 'save-manual-btn'; }, 3000); }
+  } else {
+    dot.className  = 'save-dot';
+    time.textContent = 'Нет данных';
+    next.textContent = '';
+    if(btn){ btn.disabled = false; btn.textContent = '💾 Сохранить'; btn.className = 'save-manual-btn'; }
+  }
+}
+
+async function saveAll(){
+  if(S.saving) return;
+  S.saving = true;
+  updateSaveUI();
+  try{
+    localStorage.setItem('or_shtat', JSON.stringify(S.shtat));
+    localStorage.setItem('or_gph',   JSON.stringify(S.gph));
+    if(dbClient){
+      const sr = S.shtat.map(r=>({id:r.id, data:r, updated_at:r.updatedAt||new Date().toISOString()}));
+      const gr = S.gph.map(r=>({id:r.id,   data:r, updated_at:r.updatedAt||new Date().toISOString()}));
+      const ops = [];
+      if(sr.length) ops.push(dbClient.from('or_shtat').upsert(sr));
+      if(gr.length) ops.push(dbClient.from('or_gph').upsert(gr));
+      const results = await Promise.all(ops);
+      const err = results.find(r=>r.error);
+      if(err) throw err.error;
+    }
+    markSaved();
+  } catch(e){
+    console.error('saveAll:', e);
+    notify('Ошибка сохранения: ' + (e.message||e), 'error');
+    setDbStatus('err');
+  } finally {
+    S.saving = false;
+    updateSaveUI();
+  }
+}
+
+async function manualSave(){
+  await saveAll();
+  notify('Данные сохранены ✓', 'success');
+}
+
+function startAutoSave(){
+  if(autoSaveTimer) clearInterval(autoSaveTimer);
+  if(countdownTick) clearInterval(countdownTick);
+  countdownVal = 45;
+
+  // каждую секунду обновляем счётчик
+  countdownTick = setInterval(()=>{
+    if(!dbClient) return;
+    countdownVal--;
+    if(countdownVal < 0) countdownVal = 45;
+    if(!S.saving) updateSaveUI();
+  }, 1000);
+
+  // каждые 45 сек — полный sync
+  autoSaveTimer = setInterval(async ()=>{
+    countdownVal = 45;
+    if(S.dirty || dbClient) await saveAll();
+  }, 45000);
+}
+
+// ── BACKUPS ────────────────────────────────────────────────
+async function createBackup(){
+  if(!dbClient){ notify('Бекап доступен только при подключении к Supabase', 'error'); return; }
+  const label = prompt('Название бекапа (необязательно):', new Date().toLocaleString('ru-RU'));
+  if(label === null) return;
+  showLoader(true, 'Создание бекапа…');
+  try{
+    const rec = {
+      id: genId(),
+      label: label || new Date().toLocaleString('ru-RU'),
+      shtat_count: S.shtat.length,
+      gph_count:   S.gph.length,
+      data: { shtat: S.shtat, gph: S.gph, ref: R }
+    };
+    const {error} = await dbClient.from('or_backups').insert(rec);
+    if(error) throw error;
+    showLoader(false);
+    notify('Бекап создан ✓', 'success');
+    renderSaveMgr();
+  } catch(e){
+    showLoader(false);
+    notify('Ошибка создания бекапа: ' + e.message, 'error');
+  }
+}
+
+async function restoreBackup(id){
+  if(!confirm('Восстановить этот бекап? Текущие данные будут перезаписаны.')) return;
+  showLoader(true, 'Восстановление…');
+  try{
+    const {data, error} = await dbClient.from('or_backups').select('data, label').eq('id', id).single();
+    if(error) throw error;
+    if(data.data.shtat) S.shtat = data.data.shtat;
+    if(data.data.gph)   S.gph   = data.data.gph;
+    await saveAll();
+    if(data.data.ref){
+      Object.keys(R).forEach(k=>{ if(data.data.ref[k]) R[k] = data.data.ref[k]; });
+      await dbSaveRef();
+    }
+    syncUserSel(); updBg(); render();
+    showLoader(false);
+    notify('Бекап «' + data.label + '» восстановлен ✓', 'success');
+  } catch(e){
+    showLoader(false);
+    notify('Ошибка восстановления: ' + e.message, 'error');
+  }
+}
+
+async function deleteBackup(id, label){
+  if(!confirm('Удалить бекап «' + label + '»?')) return;
+  const {error} = await dbClient.from('or_backups').delete().eq('id', id);
+  if(error){ notify('Ошибка: ' + error.message, 'error'); return; }
+  notify('Бекап удалён');
+  renderSaveMgr();
+}
+
+async function renderSaveMgr(){
+  const wrap = document.getElementById('saveMgrWrap');
+  if(!wrap) return;
+  if(!dbClient){
+    wrap.innerHTML = '<div class="bk-empty">Подключите Supabase для управления бекапами</div>';
+    return;
+  }
+  wrap.innerHTML = '<div class="bk-empty">Загрузка…</div>';
+  try{
+    const {data, error} = await dbClient.from('or_backups').select('id, created_at, label, shtat_count, gph_count').order('created_at', {ascending:false}).limit(20);
+    if(error) throw error;
+    if(!data.length){ wrap.innerHTML = '<div class="bk-empty">Бекапов пока нет. Нажмите «Создать бекап».</div>'; return; }
+    wrap.innerHTML = '<div class="bk-list">' + data.map(b=>{
+      const dt = new Date(b.created_at).toLocaleString('ru-RU');
+      return `<div class="bk-item">
+        <div class="bk-icon">📦</div>
+        <div class="bk-info">
+          <div class="bk-label" title="${esc(b.label)}">${esc(b.label)}</div>
+          <div class="bk-meta">${dt} · Штат: ${b.shtat_count}, ГПХ: ${b.gph_count}</div>
+        </div>
+        <div class="bk-acts">
+          <button class="ib" onclick="restoreBackup('${b.id}')" title="Восстановить">♻️</button>
+          <button class="ib del" onclick="deleteBackup('${b.id}','${esc(b.label)}')" title="Удалить">🗑️</button>
+        </div>
+      </div>`;
+    }).join('') + '</div>';
+  } catch(e){
+    wrap.innerHTML = '<div class="bk-empty" style="color:#dc2626">Ошибка: ' + esc(e.message) + '</div>';
+  }
 }
 
 // ── LOCAL FALLBACK ─────────────────────────────────────────
@@ -759,7 +1013,7 @@ const DLABELS={fio:'Сотрудник',stat:'Статус',vid:'Вид рабо
 let S={shtat:[],gph:[],user:'',tab:'shtat',editId:null,moType:'shtat',
   f:{fio:new Set(),stat:new Set(),vid:new Set(),tip:new Set(),q:''},
   chSrc:{stat:'shtat',pers:'shtat'},
-  charts:{}};
+  charts:{}, dirty:false, saving:false, lastSaved:null};
 
 // ── STORAGE ────────────────────────────────────────────────
 function loadLocal(){
@@ -902,6 +1156,7 @@ function render(){
   else if(S.tab==='gph')renderGph();
   else if(S.tab==='dash')renderDash();
   else if(S.tab==='cfg')renderCfg();
+  else if(S.tab==='mgr')renderSaveMgr();
 }
 
 function renderShtat(){
@@ -1360,6 +1615,12 @@ async function init(){
 
   // 2. Пробуем подключиться к Supabase
   const hasDB=tryInitDB();
+  // Восстанавливаем время последнего сохранения
+  const ls=localStorage.getItem('or_last_saved');
+  if(ls){S.lastSaved=new Date(ls);}
+  updateSaveUI();
+  startAutoSave();
+
   if(hasDB){
     setDbStatus('ok');
     showLoader(true,'Загрузка данных из Supabase…');
@@ -1367,6 +1628,7 @@ async function init(){
     await loadDataFromDB();
     showLoader(false);
     syncUserSel();updBg();render();
+    markSaved();
   }else if(!hardcoded&&!localStorage.getItem('supa_skip')){
     // Только если не вшито — предлагаем настроить вручную
     showDBSetup();
