@@ -330,6 +330,43 @@ textarea.fc{resize:vertical;min-height:64px}
 .sql-block{background:#0d1b2a;border-radius:var(--rs);padding:14px 16px;font-family:var(--mono);font-size:11.5px;color:#a5b4c8;line-height:1.7;overflow-x:auto;white-space:pre;margin:10px 0;position:relative}
 .sql-copy{position:absolute;top:8px;right:8px;background:rgba(255,255,255,.1);border:none;border-radius:4px;color:rgba(255,255,255,.6);font-size:11px;padding:3px 9px;cursor:pointer;font-family:var(--font);transition:all .15s}
 .sql-copy:hover{background:rgba(255,255,255,.18);color:#fff}
+
+/* KANBAN */
+.kb-wrap{padding:20px;min-height:100%}
+.kb-toolbar{display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.kb-board{display:flex;gap:12px;align-items:flex-start;overflow-x:auto;padding-bottom:20px}
+.kb-col{width:252px;min-width:252px;background:#f8fafc;border-radius:var(--r);border:1px solid var(--bd);display:flex;flex-direction:column;max-height:calc(100vh - 190px)}
+.kb-col-hd{padding:10px 13px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:7px;background:var(--white);border-radius:var(--r) var(--r) 0 0;flex-shrink:0}
+.kb-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.kb-col-title{font-size:11.5px;font-weight:600;color:var(--t2);flex:1;white-space:nowrap}
+.kb-col-cnt{font-size:10.5px;font-family:var(--mono);color:var(--t3);background:var(--bg);padding:1px 6px;border-radius:10px;flex-shrink:0}
+.kb-add-col{width:22px;height:22px;border-radius:var(--rs);border:1px solid var(--bd);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--t3);transition:all .12s;flex-shrink:0;line-height:1}
+.kb-add-col:hover{background:var(--acc);border-color:var(--acc);color:#0d1b2a}
+.kb-cards{padding:8px;display:flex;flex-direction:column;gap:6px;overflow-y:auto;min-height:60px;transition:background .15s}
+.kb-cards.drag-over{background:rgba(232,160,32,.08);border-radius:0 0 var(--r) var(--r)}
+.kb-card{background:var(--white);border-radius:var(--rs);border:1px solid var(--bd);padding:11px 12px;cursor:grab;transition:box-shadow .15s,border-color .15s;box-shadow:var(--sh);user-select:none}
+.kb-card:hover{border-color:#adb5bd;box-shadow:0 3px 10px rgba(0,0,0,.1)}
+.kb-card.dragging{opacity:.35;cursor:grabbing}
+.kb-type{font-size:10px;font-weight:600;padding:2px 7px;border-radius:10px;display:inline-block;margin-bottom:7px;white-space:nowrap}
+.kb-title{font-size:12.5px;font-weight:500;color:var(--t1);margin-bottom:8px;line-height:1.4;word-break:break-word}
+.kb-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.kb-date{font-size:10.5px;font-family:var(--mono);color:var(--t3);flex-shrink:0}
+.kb-date.ov{color:#dc2626;font-weight:600}
+.kb-date.sn{color:#d97706;font-weight:500}
+.kb-resp{font-size:11px;color:var(--t3);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kb-acts{display:flex;gap:3px;margin-top:8px;justify-content:flex-end}
+.kb-empty{color:var(--t3);font-size:12px;text-align:center;padding:20px 8px;font-style:italic;pointer-events:none}
+
+/* CLEAR CONFIRM */
+.cc-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:300;display:none;align-items:flex-end;justify-content:center;padding:24px}
+.cc-overlay.show{display:flex}
+.cc-box{background:var(--white);border-radius:var(--r);width:100%;max-width:460px;box-shadow:0 -4px 40px rgba(0,0,0,.2);padding:28px 28px 24px;animation:ccup .22s ease}
+@keyframes ccup{from{transform:translateY(24px);opacity:0}to{transform:translateY(0);opacity:1}}
+.cc-icon{font-size:36px;text-align:center;margin-bottom:10px}
+.cc-title{font-size:15px;font-weight:700;color:#7f1d1d;text-align:center;margin-bottom:8px}
+.cc-text{font-size:13px;color:var(--t2);text-align:center;line-height:1.65;margin-bottom:6px}
+.cc-note{font-size:12px;color:#15803d;text-align:center;background:#f0fdf4;border-radius:var(--rs);padding:8px 14px;margin-bottom:20px}
+.cc-btns{display:flex;gap:10px;justify-content:center}
 </style>
 </head>
 <body>
@@ -348,7 +385,7 @@ textarea.fc{resize:vertical;min-height:64px}
       <option>Арсёнов И.Б</option><option>Жарылкасынов С.Ж</option>
       <option value="__mgr__">👔 Менеджер (все данные)</option>
     </select>
-    <div class="sb-user-hint">Имя подставляется в имя файла при экспорте JSON, чтобы менеджер понимал, чьи данные пришли.</div>
+    <div class="sb-user-hint">Выбранное имя отображается в записях и фильтрах.</div>
   </div>
   <nav class="sb-nav">
     <div class="nav-lbl">Разделы</div>
@@ -356,6 +393,7 @@ textarea.fc{resize:vertical;min-height:64px}
     <div class="nav-it" onclick="go('gph')" id="nav-gph"><span class="ni">📋</span>ГПХ<span class="nav-bg" id="bg-gph">0</span></div>
     <div class="nav-it" onclick="go('dash')" id="nav-dash"><span class="ni">📊</span>Дашборд</div>
     <div class="nav-it" onclick="go('cfg')" id="nav-cfg"><span class="ni">🗂️</span>Справочники</div>
+    <div class="nav-it" onclick="go('cnt')" id="nav-cnt"><span class="ni">📱</span>Контент<span class="nav-bg" id="bg-cnt">0</span></div>
     <div class="nav-it" onclick="go('mgr')" id="nav-mgr"><span class="ni">⚙️</span>Менеджер</div>
   </nav>
   <div class="sb-bot">
@@ -374,10 +412,7 @@ textarea.fc{resize:vertical;min-height:64px}
       <span id="dbStatusTxt">Локально</span>
     </div>
     <button class="sb-btn" onclick="showDBSetup()">🔌 База данных</button>
-    <button class="sb-btn" onclick="exportJSON()">📤 Экспорт JSON</button>
-    <button class="sb-btn" onclick="document.getElementById('ijson').click()">📥 Импорт JSON</button>
     <button class="sb-btn" onclick="exportExcel()">📊 Скачать Excel</button>
-    <input type="file" id="ijson" accept=".json" onchange="doImportJSON(this)" style="display:none">
   </div>
 </aside>
 
@@ -511,6 +546,10 @@ textarea.fc{resize:vertical;min-height:64px}
       <div class="cfg-wrap" id="cfgWrap"></div>
     </div>
 
+    <div class="tab-p" id="tab-cnt">
+      <div class="kb-wrap" id="kbWrap"></div>
+    </div>
+
     <div class="tab-p" id="tab-mgr">
       <div class="mgr-wrap">
         <div class="mgr-c">
@@ -521,15 +560,6 @@ textarea.fc{resize:vertical;min-height:64px}
             <div class="uz-s">Поддерживается: .xlsx, .xls</div>
           </div>
           <input type="file" id="iExcel" accept=".xlsx,.xls" onchange="doImportExcel(this)" style="display:none">
-        </div>
-        <div class="mgr-c">
-          <h3>🔀 Слияние данных от коллег</h3>
-          <p>Попросите коллег нажать «Экспорт JSON». Загрузите несколько файлов — дубликаты пропустятся, при совпадении ID сохранится более новая запись.</p>
-          <div class="uzone" onclick="document.getElementById('iMerge').click()">
-            <div class="uz-ic">🔀</div><div class="uz-t">Выберите JSON-файлы (можно несколько)</div>
-            <div class="uz-s">Формат: файлы от «Экспорт JSON»</div>
-          </div>
-          <input type="file" id="iMerge" accept=".json" multiple onchange="doMergeJSON(this)" style="display:none">
         </div>
         <div class="mgr-c">
           <h3>💾 Управление сохранениями</h3>
@@ -575,6 +605,16 @@ create policy "anon_all" on or_shtat
 create policy "anon_all" on or_gph
   for all using (true) with check (true);
 create policy "anon_all" on or_ref
+  for all using (true) with check (true);
+
+-- Контент-план
+create table if not exists or_content (
+  id text primary key,
+  data jsonb not null default '{}',
+  updated_at timestamptz default now()
+);
+alter table or_content enable row level security;
+create policy "anon_all" on or_content
   for all using (true) with check (true);
 
 -- Таблица бекапов
@@ -641,6 +681,20 @@ create policy "anon_all" on or_backups
     <div class="db-box-f">
       <button class="btn btn-g" onclick="skipDBSetup()">Пропустить (локально)</button>
       <button class="btn btn-p" id="dbConnectBtn" onclick="connectDB()">Подключить</button>
+    </div>
+  </div>
+</div>
+
+<!-- Clear All Confirm -->
+<div class="cc-overlay" id="ccOverlay">
+  <div class="cc-box">
+    <div class="cc-icon">⚠️</div>
+    <div class="cc-title">Удалить все данные?</div>
+    <div class="cc-text">Будут удалены все записи Штата, ГПХ и Контент-плана.<br>Это действие нельзя отменить вручную.</div>
+    <div class="cc-note" id="ccNote">📦 Перед удалением автоматически создастся бекап — его можно найти в Менеджере.</div>
+    <div class="cc-btns">
+      <button class="btn btn-g" onclick="hideClearConfirm()">Отмена</button>
+      <button class="btn btn-dg" id="ccConfirmBtn" onclick="confirmClearAll()">🗑️ Да, удалить всё</button>
     </div>
   </div>
 </div>
@@ -738,14 +792,17 @@ function copySql(){
 async function loadDataFromDB(){
   if(!dbClient) return;
   try{
-    const [sr,gr]=await Promise.all([
+    const [sr,gr,cr]=await Promise.all([
       dbClient.from('or_shtat').select('data').order('updated_at',{ascending:true}),
       dbClient.from('or_gph').select('data').order('updated_at',{ascending:true}),
+      dbClient.from('or_content').select('data').order('updated_at',{ascending:true}),
     ]);
     if(sr.error) throw sr.error;
     if(gr.error) throw gr.error;
+    if(cr.error) throw cr.error;
     S.shtat=(sr.data||[]).map(r=>r.data);
     S.gph=(gr.data||[]).map(r=>r.data);
+    S.content=(cr.data||[]).map(r=>r.data);
   }catch(e){
     console.error('loadDataFromDB:',e);
     notify('Ошибка загрузки данных: '+e.message,'error');
@@ -855,14 +912,17 @@ async function saveAll(){
   S.saving = true;
   updateSaveUI();
   try{
-    localStorage.setItem('or_shtat', JSON.stringify(S.shtat));
-    localStorage.setItem('or_gph',   JSON.stringify(S.gph));
+    localStorage.setItem('or_shtat',   JSON.stringify(S.shtat));
+    localStorage.setItem('or_gph',     JSON.stringify(S.gph));
+    localStorage.setItem('or_content', JSON.stringify(S.content));
     if(dbClient){
       const sr = S.shtat.map(r=>({id:r.id, data:r, updated_at:r.updatedAt||new Date().toISOString()}));
-      const gr = S.gph.map(r=>({id:r.id,   data:r, updated_at:r.updatedAt||new Date().toISOString()}));
+      const gr = S.gph.map(r=>({id:r.id, data:r, updated_at:r.updatedAt||new Date().toISOString()}));
+      const cr = S.content.map(r=>({id:r.id, data:r, updated_at:r.updatedAt||new Date().toISOString()}));
       const ops = [];
       if(sr.length) ops.push(dbClient.from('or_shtat').upsert(sr));
       if(gr.length) ops.push(dbClient.from('or_gph').upsert(gr));
+      if(cr.length) ops.push(dbClient.from('or_content').upsert(cr));
       const results = await Promise.all(ops);
       const err = results.find(r=>r.error);
       if(err) throw err.error;
@@ -927,7 +987,7 @@ async function createBackup(){
       label: label || new Date().toLocaleString('ru-RU'),
       shtat_count: S.shtat.length,
       gph_count:   S.gph.length,
-      data: { shtat: S.shtat, gph: S.gph, ref: R }
+      data: { shtat: S.shtat, gph: S.gph, content: S.content, ref: R }
     };
     const {error} = await dbClient.from('or_backups').insert(rec);
     if(error) throw error;
@@ -947,8 +1007,9 @@ async function restoreBackup(id){
   try{
     const {data, error} = await dbClient.from('or_backups').select('data, label').eq('id', id).single();
     if(error) throw error;
-    if(data.data.shtat) S.shtat = data.data.shtat;
-    if(data.data.gph)   S.gph   = data.data.gph;
+    if(data.data.shtat)   S.shtat   = data.data.shtat;
+    if(data.data.gph)     S.gph     = data.data.gph;
+    if(data.data.content) S.content = data.data.content;
     await saveAll();
     if(data.data.ref){
       Object.keys(R).forEach(k=>{ if(data.data.ref[k]) R[k] = data.data.ref[k]; });
@@ -1024,7 +1085,7 @@ function genId(){return Date.now().toString(36)+Math.random().toString(36).slice
 // ── STATE ──────────────────────────────────────────────────
 const DKEYS=['fio','stat','vid','tip'];
 const DLABELS={fio:'Сотрудник',stat:'Статус',vid:'Вид работы',tip:'Тип ОР'};
-let S={shtat:[],gph:[],user:'',tab:'shtat',editId:null,moType:'shtat',
+let S={shtat:[],gph:[],content:[],user:'',tab:'shtat',editId:null,moType:'shtat',
   f:{fio:new Set(),stat:new Set(),vid:new Set(),tip:new Set(),q:''},
   chSrc:{stat:'shtat',pers:'shtat'},
   charts:{}, dirty:false, saving:false, lastSaved:null, justSaved:false};
@@ -1033,15 +1094,21 @@ let S={shtat:[],gph:[],user:'',tab:'shtat',editId:null,moType:'shtat',
 function loadLocal(){
   try{S.shtat=JSON.parse(localStorage.getItem('or_shtat')||'[]');}catch(e){S.shtat=[];}
   try{S.gph=JSON.parse(localStorage.getItem('or_gph')||'[]');}catch(e){S.gph=[];}
+  try{S.content=JSON.parse(localStorage.getItem('or_content')||'[]');}catch(e){S.content=[];}
   S.user=localStorage.getItem('or_user')||'';
   if(S.user)document.getElementById('userSel').value=S.user;
 }
-function updBg(){document.getElementById('bg-shtat').textContent=S.shtat.length;document.getElementById('bg-gph').textContent=S.gph.length;}
+function updBg(){
+  document.getElementById('bg-shtat').textContent=S.shtat.length;
+  document.getElementById('bg-gph').textContent=S.gph.length;
+  const bgCnt=document.getElementById('bg-cnt');
+  if(bgCnt) bgCnt.textContent=S.content.length;
+}
 function setUser(v){S.user=v;localStorage.setItem('or_user',v);}
 
 // ── NAVIGATION ─────────────────────────────────────────────
-const TABS=['shtat','gph','dash','cfg','mgr'];
-const TITLES={shtat:'Штат',gph:'ГПХ — Подрядчики',dash:'Дашборд',cfg:'Справочники',mgr:'Менеджер'};
+const TABS=['shtat','gph','dash','cfg','cnt','mgr'];
+const TITLES={shtat:'Штат',gph:'ГПХ — Подрядчики',dash:'Дашборд',cfg:'Справочники',cnt:'Контент-план',mgr:'Менеджер'};
 function go(tab){
   S.tab=tab;
   TABS.forEach(t=>{document.getElementById('nav-'+t)?.classList.toggle('active',t===tab);document.getElementById('tab-'+t)?.classList.toggle('active',t===tab);});
@@ -1170,6 +1237,7 @@ function render(){
   else if(S.tab==='gph')renderGph();
   else if(S.tab==='dash')renderDash();
   else if(S.tab==='cfg')renderCfg();
+  else if(S.tab==='cnt')renderKanban();
   else if(S.tab==='mgr')renderSaveMgr();
 }
 
@@ -1486,6 +1554,7 @@ function moClick(e){if(e.target===document.getElementById('mo'))closeMo();}
 function gv(id){const el=document.getElementById(id);return el?el.value.trim():'';}
 
 async function saveMo(){
+  if(S.moType==='content'){await saveContentMo();return;}
   const type=S.moType;
   const wasEdit=!!S.editId;
   let rec;
@@ -1510,52 +1579,6 @@ async function del(type,id){
   if(!confirm('Удалить запись?'))return;
   await dbDelete(type,id);
   render();notify('Запись удалена');
-}
-
-// ── JSON ───────────────────────────────────────────────────
-function exportJSON(){const data={version:1,exportedAt:new Date().toISOString(),exportedBy:S.user||'',shtat:S.shtat,gph:S.gph};const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.download=`OR_${(S.user||'all').replace(/[^а-яёa-z0-9]/gi,'_')}_${new Date().toISOString().slice(0,10)}.json`;a.click();notify('JSON экспортирован ✓','success');}
-function doImportJSON(inp){
-  const f=inp.files[0];if(!f)return;
-  const rd=new FileReader();
-  rd.onload=e=>{try{mergeData(JSON.parse(e.target.result));}catch(ex){notify('Ошибка файла','error');}inp.value='';};
-  rd.readAsText(f);
-}
-function doMergeJSON(inp){
-  const files=Array.from(inp.files);let done=0;
-  files.forEach(f=>{
-    const rd=new FileReader();
-    rd.onload=async e=>{
-      try{await mergeData(JSON.parse(e.target.result),true);}catch(ex){}
-      done++;if(done===files.length)notify(`Слияние: ${files.length} файлов ✓`,'success');
-    };
-    rd.readAsText(f);
-  });
-  inp.value='';
-}
-async function mergeData(data,silent){
-  let n=0;
-  const ups={shtat:[],gph:[]};
-  if(data.shtat)data.shtat.forEach(r=>{
-    const i=S.shtat.findIndex(x=>x.id===r.id);
-    if(i===-1){S.shtat.push(r);ups.shtat.push(r);n++;}
-    else if(new Date(r.updatedAt)>new Date(S.shtat[i].updatedAt)){S.shtat[i]=r;ups.shtat.push(r);}
-  });
-  if(data.gph)data.gph.forEach(r=>{
-    const i=S.gph.findIndex(x=>x.id===r.id);
-    if(i===-1){S.gph.push(r);ups.gph.push(r);n++;}
-    else if(new Date(r.updatedAt)>new Date(S.gph[i].updatedAt)){S.gph[i]=r;ups.gph.push(r);}
-  });
-  updBg();
-  localStorage.setItem('or_shtat',JSON.stringify(S.shtat));
-  localStorage.setItem('or_gph',JSON.stringify(S.gph));
-  if(dbClient){
-    try{
-      if(ups.shtat.length) await dbClient.from('or_shtat').upsert(ups.shtat.map(r=>({id:r.id,data:r,updated_at:r.updatedAt})));
-      if(ups.gph.length)   await dbClient.from('or_gph').upsert(ups.gph.map(r=>({id:r.id,data:r,updated_at:r.updatedAt})));
-    }catch(e){console.error('mergeData DB:',e);}
-  }
-  render();
-  if(!silent)notify(`Импортировано: +${n} новых ✓`,'success');
 }
 
 // ── EXCEL ──────────────────────────────────────────────────
@@ -1595,20 +1618,216 @@ function exportExcel(){
   XLSX.writeFile(wb,`ОтчётОР_${new Date().toLocaleDateString('ru-RU').replace(/\./g,'-')}.xlsx`);
   notify('Excel скачан ✓','success');
 }
-async function clearAll(){
-  if(!confirm('Удалить ВСЕ данные? Нельзя отменить!'))return;
-  if(!confirm('Подтвердите удаление всех данных.'))return;
-  S.shtat=[];S.gph=[];
-  localStorage.removeItem('or_shtat');localStorage.removeItem('or_gph');
+function clearAll(){ showClearConfirm(); }
+
+function showClearConfirm(){
+  const note = document.getElementById('ccNote');
+  const btn  = document.getElementById('ccConfirmBtn');
+  if(note) note.style.display = dbClient ? '' : 'none';
+  if(btn){ btn.disabled=false; btn.textContent='🗑️ Да, удалить всё'; }
+  document.getElementById('ccOverlay').classList.add('show');
+}
+function hideClearConfirm(){
+  document.getElementById('ccOverlay').classList.remove('show');
+}
+
+async function confirmClearAll(){
+  const btn = document.getElementById('ccConfirmBtn');
+  btn.disabled = true;
+
+  if(dbClient){
+    btn.textContent = '⏳ Создаём бекап…';
+    try{
+      const rec = {
+        id: genId(),
+        label: 'Авто-бекап перед очисткой — ' + new Date().toLocaleString('ru-RU'),
+        shtat_count: S.shtat.length,
+        gph_count:   S.gph.length,
+        data: { shtat: S.shtat, gph: S.gph, content: S.content, ref: R }
+      };
+      await dbClient.from('or_backups').insert(rec);
+      await pruneBackups();
+    }catch(e){ console.error('auto-backup before clear:', e); }
+  }
+
+  btn.textContent = '⏳ Удаляем…';
+  S.shtat=[];S.gph=[];S.content=[];
+  localStorage.removeItem('or_shtat');
+  localStorage.removeItem('or_gph');
+  localStorage.removeItem('or_content');
   if(dbClient){
     try{
       await Promise.all([
         dbClient.from('or_shtat').delete().neq('id','__none__'),
         dbClient.from('or_gph').delete().neq('id','__none__'),
+        dbClient.from('or_content').delete().neq('id','__none__'),
       ]);
-    }catch(e){console.error('clearAll DB:',e);}
+    }catch(e){ console.error('clearAll DB:',e); }
   }
-  updBg();render();notify('Все данные удалены');
+
+  hideClearConfirm();
+  updBg(); render();
+  notify(dbClient ? 'Данные удалены. Бекап сохранён в Менеджере ✓' : 'Все данные удалены', 'success');
+}
+
+// ── CONTENT PLAN / KANBAN ──────────────────────────────────
+const KB_COLS=[
+  {label:'Идея',            color:'#94a3b8'},
+  {label:'В работе',        color:'#3b82f6'},
+  {label:'На согласовании', color:'#f59e0b'},
+  {label:'Готово',          color:'#22c55e'},
+  {label:'Опубликовано',    color:'#8b5cf6'},
+];
+const CT_TYPES=['Пост','Reels','Stories'];
+const CT_COLORS={'Пост':'background:#e0f2fe;color:#0369a1','Reels':'background:#fce7f3;color:#be185d','Stories':'background:#fef9c3;color:#854d0e'};
+let kbDragId=null;
+
+function renderKanban(){
+  const wrap=document.getElementById('kbWrap');
+  if(!wrap) return;
+  wrap.innerHTML=`
+    <div class="kb-toolbar">
+      <button class="btn btn-p" onclick="openContentModal()">+ Добавить</button>
+      <span style="font-size:12px;color:var(--t3)">Всего: ${S.content.length} материалов</span>
+    </div>
+    <div class="kb-board">${KB_COLS.map(renderKbCol).join('')}</div>`;
+}
+
+function renderKbCol({label,color}){
+  const cards=S.content.filter(r=>r.status===label);
+  return `<div class="kb-col"
+    ondragover="event.preventDefault();this.querySelector('.kb-cards').classList.add('drag-over')"
+    ondragleave="this.querySelector('.kb-cards').classList.remove('drag-over')"
+    ondrop="kbDrop(event,'${label}')">
+    <div class="kb-col-hd">
+      <div class="kb-dot" style="background:${color}"></div>
+      <div class="kb-col-title">${label}</div>
+      <div class="kb-col-cnt">${cards.length}</div>
+      <button class="kb-add-col" onclick="openContentModal('${label}')" title="Добавить">+</button>
+    </div>
+    <div class="kb-cards">
+      ${cards.length?cards.map(renderKbCard).join(''):'<div class="kb-empty">Пусто</div>'}
+    </div>
+  </div>`;
+}
+
+function renderKbCard(r){
+  const now=new Date();now.setHours(0,0,0,0);
+  const d=r.plannedDate?new Date(r.plannedDate):null;
+  let dcls='';
+  if(d&&!isNaN(d)&&r.status!=='Опубликовано'){
+    const diff=(d-now)/86400000;
+    dcls=diff<0?'ov':diff<=3?'sn':'';
+  }
+  const dateStr=r.plannedDate?new Date(r.plannedDate).toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit'}):'';
+  const typeStyle=CT_COLORS[r.type]||'background:#f1f5f9;color:#64748b';
+  const resp=(r.responsible||'').split(' ').slice(0,2).join(' ');
+  return `<div class="kb-card" draggable="true"
+    ondragstart="kbDragStart(event,'${r.id}')"
+    ondragend="this.classList.remove('dragging')">
+    <span class="kb-type" style="${typeStyle}">${esc(r.type||'Пост')}</span>
+    <div class="kb-title">${esc(r.title||'—')}</div>
+    <div class="kb-meta">
+      ${dateStr?`<span class="kb-date ${dcls}">📅 ${dateStr}</span>`:''}
+      ${resp?`<span class="kb-resp">${esc(resp)}</span>`:''}
+    </div>
+    <div class="kb-acts">
+      <button class="ib" onclick="openContentModal(null,'${r.id}')" title="Редактировать">✏️</button>
+      <button class="ib del" onclick="delContent('${r.id}')" title="Удалить">🗑️</button>
+    </div>
+  </div>`;
+}
+
+function kbDragStart(e,id){
+  kbDragId=id;
+  e.target.classList.add('dragging');
+  e.dataTransfer.effectAllowed='move';
+}
+
+function kbDrop(e,status){
+  e.preventDefault();
+  e.currentTarget.querySelector('.kb-cards').classList.remove('drag-over');
+  if(!kbDragId) return;
+  const rec=S.content.find(r=>r.id===kbDragId);
+  kbDragId=null;
+  if(!rec||rec.status===status) return;
+  rec.status=status;
+  rec.updatedAt=new Date().toISOString();
+  dbUpsertContent(rec);
+  renderKanban();
+}
+
+function openContentModal(status,id){
+  const rec=id?S.content.find(r=>r.id===id):null;
+  const v=rec||{};
+  S.editId=id||null;
+  S.moType='content';
+  document.getElementById('moTitle').textContent=id?'Редактировать материал':'Добавить материал';
+  const opts=(arr,sel)=>arr.map(e=>`<option value="${esc(e)}"${e===sel?' selected':''}>${esc(e)}</option>`).join('');
+  const kbOpts=KB_COLS.map(c=>`<option value="${esc(c.label)}"${(v.status||status||'Идея')===c.label?' selected':''}>${c.label}</option>`).join('');
+  document.getElementById('moBody').innerHTML=`<div class="fg">
+    <div class="fg-group full"><label class="fg-label">Тема / Название *</label><input type="text" class="fc" id="ct_title" placeholder="О чём публикация?" value="${esc(v.title||'')}"></div>
+    <div class="fg-group"><label class="fg-label">Тип *</label><select class="fc" id="ct_type">${opts(CT_TYPES,v.type||'Пост')}</select></div>
+    <div class="fg-group"><label class="fg-label">Статус</label><select class="fc" id="ct_status">${kbOpts}</select></div>
+    <div class="fg-group"><label class="fg-label">Ответственный</label><select class="fc" id="ct_resp"><option value="">— Не указан —</option>${opts(R.emp,v.responsible||S.user||'')}</select></div>
+    <div class="fg-group"><label class="fg-label">Дата публикации (план)</label><input type="date" class="fc" id="ct_date" value="${v.plannedDate||''}"></div>
+    <div class="fg-group"><label class="fg-label">Дата публикации (факт)</label><input type="date" class="fc" id="ct_fdate" value="${v.factDate||''}"></div>
+    <div class="fg-group full"><label class="fg-label">Текст / Описание</label><textarea class="fc" id="ct_text" style="min-height:80px">${esc(v.text||'')}</textarea></div>
+    <div class="fg-group full"><label class="fg-label">Ссылка на материал</label><input type="text" class="fc" id="ct_link" placeholder="https://…" value="${esc(v.link||'')}"></div>
+    <div class="fg-group full"><label class="fg-label">Комментарий</label><textarea class="fc" id="ct_comment">${esc(v.comment||'')}</textarea></div>
+  </div>`;
+  document.getElementById('mo').classList.add('open');
+}
+
+async function saveContentMo(){
+  if(!gv('ct_title')){notify('Введите тему/название','error');return;}
+  const prev=S.editId?S.content.find(r=>r.id===S.editId):null;
+  const rec={
+    id:S.editId||genId(),
+    title:gv('ct_title'),
+    type:gv('ct_type')||'Пост',
+    responsible:gv('ct_resp'),
+    status:gv('ct_status')||'Идея',
+    plannedDate:gv('ct_date'),
+    factDate:gv('ct_fdate'),
+    text:gv('ct_text'),
+    link:gv('ct_link'),
+    comment:gv('ct_comment'),
+    createdAt:prev?prev.createdAt:new Date().toISOString(),
+    updatedAt:new Date().toISOString(),
+  };
+  const wasEdit=!!S.editId;
+  closeMo();
+  try{
+    await dbUpsertContent(rec);
+    renderKanban();
+    notify(wasEdit?'Обновлено ✓':'Добавлено ✓','success');
+  }catch(e){notify('Ошибка: '+(e.message||e),'error');}
+}
+
+async function dbUpsertContent(rec){
+  const i=S.content.findIndex(r=>r.id===rec.id);
+  if(i!==-1) S.content[i]=rec; else S.content.push(rec);
+  updBg(); markDirty();
+  localStorage.setItem('or_content',JSON.stringify(S.content));
+  if(!dbClient) return;
+  const {error}=await dbClient.from('or_content').upsert({id:rec.id,data:rec,updated_at:rec.updatedAt});
+  if(error){setDbStatus('err');throw error;}
+  markSaved();
+}
+
+async function delContent(id){
+  if(!confirm('Удалить материал?')) return;
+  S.content=S.content.filter(r=>r.id!==id);
+  updBg(); markDirty();
+  localStorage.setItem('or_content',JSON.stringify(S.content));
+  if(dbClient){
+    const {error}=await dbClient.from('or_content').delete().eq('id',id);
+    if(error){setDbStatus('err');console.error('delContent:',error);return;}
+    markSaved();
+  }
+  renderKanban();
+  notify('Удалено');
 }
 
 function notify(msg,type){const el=document.createElement('div');el.className='notif'+(type?' '+type:'');el.textContent=msg;document.body.appendChild(el);setTimeout(()=>{el.style.opacity='0';el.style.transition='opacity .3s';setTimeout(()=>el.remove(),300);},3000);}
@@ -1656,7 +1875,7 @@ async function init(){
   }
 
   document.addEventListener('keydown',e=>{
-    if(e.key==='Escape'){closeMo();closeAllDrops();hideDBSetup();}
+    if(e.key==='Escape'){closeMo();closeAllDrops();hideDBSetup();hideClearConfirm();}
     if(e.key==='Enter'&&e.ctrlKey&&document.getElementById('mo').classList.contains('open')){e.preventDefault();saveMo();}
   });
 }
