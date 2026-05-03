@@ -812,9 +812,11 @@ function markDirty(){
 function markSaved(){
   S.dirty     = false;
   S.lastSaved = new Date();
+  S.justSaved = true;
   localStorage.setItem('or_last_saved', S.lastSaved.toISOString());
   countdownVal = 45;
   updateSaveUI();
+  setTimeout(()=>{ S.justSaved = false; updateSaveUI(); }, 3000);
 }
 
 function updateSaveUI(){
@@ -838,9 +840,8 @@ function updateSaveUI(){
   } else if(S.lastSaved){
     dot.className  = 'save-dot ok';
     time.textContent = 'Сохранено в ' + S.lastSaved.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-    next.textContent = dbClient ? 'Авто через ' + countdownVal + ' с' : '';
-    if(btn){ btn.disabled = false; btn.textContent = '✓ Сохранено'; btn.className = 'save-manual-btn ok-state';
-      setTimeout(()=>{ if(btn){ btn.textContent = '💾 Сохранить'; btn.className = 'save-manual-btn'; }}, 3000); }
+    next.textContent = '';
+    if(btn){ btn.disabled = false; btn.textContent = S.justSaved ? '✓ Сохранено' : '💾 Сохранить'; btn.className = 'save-manual-btn' + (S.justSaved ? ' ok-state' : ''); }
   } else {
     dot.className  = 'save-dot';
     time.textContent = 'Нет данных';
@@ -903,6 +904,18 @@ function startAutoSave(){
 }
 
 // ── BACKUPS ────────────────────────────────────────────────
+const BACKUP_LIMIT = 10;
+
+async function pruneBackups(){
+  const {data, error} = await dbClient.from('or_backups')
+    .select('id, created_at')
+    .order('created_at', {ascending: false});
+  if(error || !data) return;
+  const toDelete = data.slice(BACKUP_LIMIT);
+  if(!toDelete.length) return;
+  await Promise.all(toDelete.map(b => dbClient.from('or_backups').delete().eq('id', b.id)));
+}
+
 async function createBackup(){
   if(!dbClient){ notify('Бекап доступен только при подключении к Supabase', 'error'); return; }
   const label = prompt('Название бекапа (необязательно):', new Date().toLocaleString('ru-RU'));
@@ -918,6 +931,7 @@ async function createBackup(){
     };
     const {error} = await dbClient.from('or_backups').insert(rec);
     if(error) throw error;
+    await pruneBackups();
     showLoader(false);
     notify('Бекап создан ✓', 'success');
     renderSaveMgr();
@@ -1013,7 +1027,7 @@ const DLABELS={fio:'Сотрудник',stat:'Статус',vid:'Вид рабо
 let S={shtat:[],gph:[],user:'',tab:'shtat',editId:null,moType:'shtat',
   f:{fio:new Set(),stat:new Set(),vid:new Set(),tip:new Set(),q:''},
   chSrc:{stat:'shtat',pers:'shtat'},
-  charts:{}, dirty:false, saving:false, lastSaved:null};
+  charts:{}, dirty:false, saving:false, lastSaved:null, justSaved:false};
 
 // ── STORAGE ────────────────────────────────────────────────
 function loadLocal(){
