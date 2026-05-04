@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Учёт ОР — ERG CU</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -467,16 +467,19 @@ textarea.fc{resize:vertical;min-height:64px}
   :root{--sbw:248px}
   body{overflow:hidden}
 
-  .sb{position:fixed;left:calc(-1 * var(--sbw) - 10px);top:0;height:100dvh;z-index:99;transition:left .25s ease;box-shadow:none}
+  /* Safe-area: sidebar top padding under dynamic island / notch */
+  .sb{position:fixed;left:calc(-1 * var(--sbw) - 10px);top:0;height:100dvh;z-index:99;transition:left .25s ease;box-shadow:none;padding-top:env(safe-area-inset-top)}
   .sb.open{left:0;box-shadow:4px 0 24px rgba(0,0,0,.3)}
 
   .ham-btn{display:flex}
   .main{width:100vw}
 
-  .topbar{padding:0 12px;gap:8px;height:50px}
+  /* Topbar: height + top padding for safe area (notch / dynamic island) */
+  .topbar{padding-left:12px;padding-right:12px;padding-top:env(safe-area-inset-top);gap:8px;height:calc(50px + env(safe-area-inset-top))}
   .topbar-title{font-size:14px}
   .srch{width:130px;font-size:12px}
 
+  /* fbar scrolls horizontally — dropdowns escape via position:fixed (set in JS) */
   .fbar{flex-wrap:nowrap;overflow-x:auto;padding:8px 12px;gap:5px;-webkit-overflow-scrolling:touch}
   .fbar::-webkit-scrollbar{height:0}
 
@@ -1383,10 +1386,26 @@ function toggleDrop(key){
     drop.classList.add('open');
     document.querySelector('#ms-'+key+' .ms-btn').classList.add('open');
     buildList(key,'');
+    // On mobile fbar has overflow-x:auto which clips absolute children.
+    // Fix: reposition dropdown as position:fixed using the button's screen coords.
+    if(window.innerWidth<=768){
+      const btn=document.querySelector('#ms-'+key+' .ms-btn');
+      if(btn){
+        const r=btn.getBoundingClientRect();
+        drop.style.cssText=`position:fixed;top:${Math.round(r.bottom+4)}px;left:10px;right:10px;min-width:unset;max-width:unset;z-index:220`;
+      }
+    }
     const inp=drop.querySelector('.ms-sinp');if(inp){inp.value='';inp.focus();}
   }
 }
-function closeAllDrops(){DKEYS.forEach(k=>{document.getElementById('drop-'+k).classList.remove('open');document.querySelector('#ms-'+k+' .ms-btn').classList.remove('open');});}
+function closeAllDrops(){
+  DKEYS.forEach(k=>{
+    const d=document.getElementById('drop-'+k);
+    d.classList.remove('open');
+    d.style.cssText=''; // clear mobile fixed positioning
+    document.querySelector('#ms-'+k+' .ms-btn').classList.remove('open');
+  });
+}
 function filterDrop(key,q){buildList(key,q);}
 
 function clearDrop(key){S.f[key].clear();syncBtn(key);buildList(key,'');render();}
