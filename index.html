@@ -1147,6 +1147,7 @@ async function saveAll(){
 
 async function manualSave(){
   await saveAll();
+  startAutoSave(); // сброс интервала чтобы счётчик не рассинхронизировался
   notify('Данные сохранены ✓', 'success');
 }
 
@@ -1261,7 +1262,7 @@ async function renderSaveMgr(){
         </div>
         <div class="bk-acts">
           <button class="ib" onclick="restoreBackup('${b.id}')" title="Восстановить">♻️</button>
-          <button class="ib del" onclick="deleteBackup('${b.id}','${esc(b.label)}')" title="Удалить">🗑️</button>
+          <button class="ib del" data-id="${b.id}" data-label="${esc(b.label)}" onclick="deleteBackup(this.dataset.id,this.dataset.label)" title="Удалить">🗑️</button>
         </div>
       </div>`;
     }).join('') + '</div>';
@@ -1348,8 +1349,8 @@ function buildList(key,query){
   const q=(query||'').toLowerCase();
   const shown=q?items.filter(i=>i.toLowerCase().includes(q)):items;
   document.getElementById('list-'+key).innerHTML=shown.map(v=>`
-    <div class="ms-item" onclick="toggleItem('${key}','${esc(v)}',this)">
-      <input type="checkbox" ${fset.has(v)?'checked':''} onclick="event.stopPropagation();toggleItem('${key}','${esc(v)}',this.parentElement)">
+    <div class="ms-item" data-key="${key}" data-val="${esc(v)}" onclick="toggleItem(this.dataset.key,this.dataset.val,this)">
+      <input type="checkbox" ${fset.has(v)?'checked':''} data-key="${key}" data-val="${esc(v)}" onclick="event.stopPropagation();toggleItem(this.dataset.key,this.dataset.val,this.parentElement)">
       <span class="ms-item-lbl" title="${esc(v)}">${esc(v)}</span>
     </div>`).join('');
 }
@@ -1386,23 +1387,29 @@ function toggleDrop(key){
     drop.classList.add('open');
     document.querySelector('#ms-'+key+' .ms-btn').classList.add('open');
     buildList(key,'');
-    // On mobile fbar has overflow-x:auto which clips absolute children.
-    // Fix: reposition dropdown as position:fixed using the button's screen coords.
     if(window.innerWidth<=768){
+      // iOS Safari: overflow-x:auto on fbar prevents fixed/absolute children from
+      // escaping it. Move the dropdown to <body> so it renders above everything.
       const btn=document.querySelector('#ms-'+key+' .ms-btn');
       if(btn){
         const r=btn.getBoundingClientRect();
-        drop.style.cssText=`position:fixed;top:${Math.round(r.bottom+4)}px;left:10px;right:10px;min-width:unset;max-width:unset;z-index:220`;
+        document.body.appendChild(drop);
+        drop.style.cssText=`position:fixed;top:${Math.round(r.bottom+5)}px;left:10px;right:10px;min-width:unset;max-width:unset;z-index:9999;display:block;max-height:55vh;overflow-y:auto`;
       }
+      // Don't auto-focus search on mobile — it raises the keyboard and hides the dropdown
+    }else{
+      const inp=drop.querySelector('.ms-sinp');if(inp){inp.value='';inp.focus();}
     }
-    const inp=drop.querySelector('.ms-sinp');if(inp){inp.value='';inp.focus();}
   }
 }
 function closeAllDrops(){
   DKEYS.forEach(k=>{
     const d=document.getElementById('drop-'+k);
+    const ms=document.getElementById('ms-'+k);
+    // Return dropdown to its original parent if it was portaled to <body>
+    if(ms&&d.parentElement!==ms)ms.appendChild(d);
     d.classList.remove('open');
-    d.style.cssText=''; // clear mobile fixed positioning
+    d.style.cssText='';
     document.querySelector('#ms-'+k+' .ms-btn').classList.remove('open');
   });
 }
@@ -1437,7 +1444,7 @@ function openStatusPicker(e,table,id){
   e.stopPropagation();
   const pop=document.getElementById('spPop');
   const statuses=R.stat||['Не начато','В работе','На проверке','Завершено','Приостановлено'];
-  pop.innerHTML=statuses.map(s=>`<div class="sp-item" onclick="setRecStatus('${table}','${id}','${esc(s)}')">${bdg(s)}</div>`).join('');
+  pop.innerHTML=statuses.map(s=>`<div class="sp-item" data-table="${table}" data-id="${id}" data-status="${esc(s)}" onclick="setRecStatus(this.dataset.table,this.dataset.id,this.dataset.status)">${bdg(s)}</div>`).join('');
   const rect=e.currentTarget.getBoundingClientRect();
   pop.style.top=(rect.bottom+4)+'px';
   pop.style.left=rect.left+'px';
@@ -1486,7 +1493,7 @@ function renderRcount(shown,total){
   document.getElementById('rc-num').textContent=shown===total?`Всего: ${total}`:`Показано: ${shown} из ${total}`;
   // tag pills
   const tags=[];
-  DKEYS.forEach(k=>{S.f[k].forEach(v=>{tags.push(`<span class="rc-tag">${esc(v)}<span class="rc-tag-x" onclick="removeTag('${k}','${esc(v)}')">✕</span></span>`);});});
+  DKEYS.forEach(k=>{S.f[k].forEach(v=>{tags.push(`<span class="rc-tag">${esc(v)}<span class="rc-tag-x" data-k="${k}" data-v="${esc(v)}" onclick="removeTag(this.dataset.k,this.dataset.v)">✕</span></span>`);});});
   document.getElementById('rc-tags').innerHTML=tags.join('');
 }
 
@@ -1531,7 +1538,7 @@ function renderShtat(){
     const cc=(r.comments||[]).length;
     return `<tr class="${dc==='ov'?'row-ov':dc==='sn'?'row-sn':''}">
       <td class="tc-n">${i+1}</td>
-      <td class="tc-m" style="white-space:nowrap"><span class="name-link" onclick="openEmpPanel('${esc(r.fio)}')" title="Профиль сотрудника">${esc(r.fio||'—')}</span></td>
+      <td class="tc-m" style="white-space:nowrap"><span class="name-link" data-fio="${esc(r.fio)}" onclick="openEmpPanel(this.dataset.fio)" title="Профиль сотрудника">${esc(r.fio||'—')}</span></td>
       <td class="tc-m">${esc(nv(r.vidRaboty)||'—')}</td>
       <td class="tc-m">${esc(r.tipOR||'—')}</td>
       <td class="tc-name" title="${esc(r.navOR||'')}">${esc(r.navOR||'—')}</td>
@@ -1572,8 +1579,8 @@ function renderGph(){
     const cc=(r.comments||[]).length;
     return `<tr class="${dc==='ov'?'row-ov':dc==='sn'?'row-sn':''}">
       <td class="tc-n">${i+1}</td>
-      <td class="tc-m" style="white-space:nowrap"><span class="name-link" onclick="openEmpPanel('${esc(r.fioRazrab)}')" title="Профиль разработчика">${esc(r.fioRazrab||'—')}</span></td>
-      <td class="tc-m" style="white-space:nowrap"><span class="name-link" onclick="openEmpPanel('${esc(r.fioKurator)}')" title="Профиль куратора">${esc(r.fioKurator||'—')}</span></td>
+      <td class="tc-m" style="white-space:nowrap"><span class="name-link" data-fio="${esc(r.fioRazrab)}" onclick="openEmpPanel(this.dataset.fio)" title="Профиль разработчика">${esc(r.fioRazrab||'—')}</span></td>
+      <td class="tc-m" style="white-space:nowrap"><span class="name-link" data-fio="${esc(r.fioKurator)}" onclick="openEmpPanel(this.dataset.fio)" title="Профиль куратора">${esc(r.fioKurator||'—')}</span></td>
       <td class="tc-m">${esc(nv(r.vidRaboty)||'—')}</td>
       <td class="tc-m">${esc(r.tipOR||'—')}</td>
       <td class="tc-name" title="${esc(r.navOR||'')}">${esc(r.navOR||'—')}</td>
@@ -1748,7 +1755,7 @@ function cfgCard({key,icon,label,hint}){
     ?items.map((v,i)=>`
       <div class="cfg-item">
         <span class="cfg-item-lbl" title="${esc(v)}">${esc(v)}</span>
-        <button class="cfg-del" onclick="removeRef('${key}','${esc(v)}')" title="Удалить">✕</button>
+        <button class="cfg-del" data-key="${key}" data-val="${esc(v)}" onclick="removeRef(this.dataset.key,this.dataset.val)" title="Удалить">✕</button>
       </div>`).join('')
     :'<div class="cfg-empty">Список пуст</div>';
   return `<div class="cfg-c">
@@ -2490,7 +2497,7 @@ function closeSidebar(){
 
 // close drops on outside click
 document.addEventListener('click',e=>{
-  if(!e.target.closest('.ms-wrap'))closeAllDrops();
+  if(!e.target.closest('.ms-wrap')&&!e.target.closest('.ms-drop'))closeAllDrops();
   if(!e.target.closest('.sp-pop')&&!e.target.closest('.badge-btn'))document.getElementById('spPop').classList.remove('open');
 });
 
