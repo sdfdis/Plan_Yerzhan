@@ -432,15 +432,13 @@ textarea.fc{resize:vertical;min-height:64px}
 .grp-hdr-lbl{margin-right:8px}
 .grp-hdr-cnt{font-family:var(--mono);background:rgba(0,0,0,.07);border-radius:10px;padding:1px 7px;font-size:10.5px}
 
-/* MODAL EXTRAS — comments + history */
-.mo-extras{border-top:1px solid var(--bd);margin-top:16px}
-.mo-sec{border:1px solid var(--bd);border-radius:var(--rs);margin-top:8px;overflow:hidden}
-.mo-sec-hd{display:flex;align-items:center;gap:8px;padding:9px 13px;background:#fafafa;cursor:pointer;user-select:none;font-size:13px;font-weight:500;color:var(--t2);transition:background .15s}
-.mo-sec-hd:hover{background:#f1f5f9}
-.mo-sec-badge{background:var(--acc);color:#0d1b2a;border-radius:10px;font-size:10px;font-weight:700;padding:1px 6px;font-family:var(--mono);display:none}
-.mo-sec-badge.show{display:inline}
-.mo-sec-arr{margin-left:auto;color:var(--t3);font-size:10px}
-.mo-sec-body{padding:12px 13px;display:flex;flex-direction:column;gap:6px;max-height:220px;overflow-y:auto}
+/* MODAL TABS (form / comments / history) */
+.mo-tabs{display:flex;border-bottom:2px solid var(--bd);margin:-22px -22px 18px;padding:0 14px;background:#fafafa;flex-shrink:0}
+.mo-tab{padding:10px 14px;border:none;background:transparent;font-family:var(--font);font-size:12.5px;font-weight:500;color:var(--t3);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s;display:flex;align-items:center;gap:5px;white-space:nowrap}
+.mo-tab:hover{color:var(--t1)}
+.mo-tab.active{color:var(--acc);border-bottom-color:var(--acc);background:var(--white)}
+.mo-tab-badge{background:var(--acc);color:#0d1b2a;border-radius:10px;font-size:10px;font-weight:700;padding:1px 5px;font-family:var(--mono);line-height:1.6}
+.mo-tab-pane{display:none}.mo-tab-pane.active{display:block}
 .comm-empty{color:var(--t3);font-size:12px;text-align:center;padding:8px 0;font-style:italic}
 .comm-item{background:var(--bg);border-radius:var(--rs);padding:8px 10px;border:1px solid var(--bd)}
 .comm-hd{display:flex;align-items:center;gap:6px;margin-bottom:4px}
@@ -1310,7 +1308,7 @@ function updBg(){
   const bgCnt=document.getElementById('bg-cnt');
   if(bgCnt) bgCnt.textContent=S.content.length;
 }
-function setUser(v){S.user=v;localStorage.setItem('or_user',v);}
+function setUser(v){S.user=v;localStorage.setItem('or_user',v);if(S.tab==='my')renderMyTasks();}
 
 // ── NAVIGATION ─────────────────────────────────────────────
 const TABS=['shtat','gph','dash','cfg','cnt','my','mgr'];
@@ -1324,6 +1322,7 @@ function go(tab){
   const tbl=['shtat','gph'].includes(tab);
   ['srchWrap','addBtn','fbar'].forEach(id=>document.getElementById(id).style.display=tbl?'':'none');
   document.getElementById('rcount').style.display=tbl?'':'none';
+  if(!tbl){S.groupBy='';const gs=document.getElementById('groupBySel');if(gs)gs.value='';}
   resetAll(true);
   document.getElementById('srchIn').value='';S.f.q='';
   render();
@@ -1826,56 +1825,56 @@ function openModal(type,id){
     <div class="fg-group"><label class="fg-label">Статус *</label><select class="fc" id="f_stat">${opts(R.stat,ns_(v.status||'В работе'))}</select></div>
     <div class="fg-group full"><label class="fg-label">Комментарии</label><textarea class="fc" id="f_kom">${esc(v.kommentarii||'')}</textarea></div>
   </div>`;}
-  document.getElementById('moBody').innerHTML=html;
   if(id&&rec){
     const cc=(rec.comments||[]).length;
     const hc=(rec.history||[]).length;
-    document.getElementById('moBody').insertAdjacentHTML('beforeend',`<div class="mo-extras">
-      <div class="mo-sec">
-        <div class="mo-sec-hd" onclick="toggleMoSec('comm')">
-          💬 Комментарии
-          <span class="mo-sec-badge${cc?' show':''}" id="commBadge">${cc||''}</span>
-          <span class="mo-sec-arr" id="commArr">▼</span>
-        </div>
-        <div class="mo-sec-body" id="commBody">
-          <div id="commList"></div>
-          <div class="comm-add">
-            <input class="fc" id="commInp" placeholder="Написать комментарий…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();addComment();}">
-            <button class="btn btn-p" style="white-space:nowrap" onclick="addComment()">Отправить</button>
-          </div>
+    document.getElementById('moBody').innerHTML=`
+      <div class="mo-tabs">
+        <button class="mo-tab active" onclick="switchMoTab('form',this)">📝 Форма</button>
+        <button class="mo-tab" onclick="switchMoTab('comm',this)" id="moTabComm">💬 Комментарии${cc?` <span class="mo-tab-badge">${cc}</span>`:''}</button>
+        <button class="mo-tab" onclick="switchMoTab('hist',this)" id="moTabHist">📋 История${hc?` <span class="mo-tab-badge">${hc}</span>`:''}</button>
+      </div>
+      <div class="mo-tab-pane active" id="moPane-form">${html}</div>
+      <div class="mo-tab-pane" id="moPane-comm">
+        <div id="commList"></div>
+        <div class="comm-add" style="margin-top:8px">
+          <input class="fc" id="commInp" placeholder="Написать комментарий…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();addComment();}">
+          <button class="btn btn-p" style="white-space:nowrap" onclick="addComment()">Отправить</button>
         </div>
       </div>
-      <div class="mo-sec">
-        <div class="mo-sec-hd" onclick="toggleMoSec('hist')">
-          📋 История изменений
-          <span class="mo-sec-badge${hc?' show':''}" id="histBadge">${hc||''}</span>
-          <span class="mo-sec-arr" id="histArr">▼</span>
-        </div>
-        <div class="mo-sec-body" id="histBody" style="display:none"></div>
-      </div>
-    </div>`);
+      <div class="mo-tab-pane" id="moPane-hist">
+        <div id="histBody"></div>
+      </div>`;
     renderMoComments(rec);
     renderMoHistory(rec);
+  }else{
+    document.getElementById('moBody').innerHTML=html;
   }
   document.getElementById('mo').classList.add('open');
 }
 function closeMo(){document.getElementById('mo').classList.remove('open');S.editId=null;}
 
-function toggleMoSec(key){
-  const body=document.getElementById(key+'Body');
-  const arr=document.getElementById(key+'Arr');
-  if(!body)return;
-  const open=body.style.display!=='none';
-  body.style.display=open?'none':'';
-  if(arr)arr.textContent=open?'▶':'▼';
+function switchMoTab(name,btn){
+  document.querySelectorAll('.mo-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.mo-tab-pane').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active');
+  const pane=document.getElementById('moPane-'+name);
+  if(pane)pane.classList.add('active');
+}
+
+function _moTabBadge(tabId,count){
+  const btn=document.getElementById(tabId);
+  if(!btn)return;
+  const old=btn.querySelector('.mo-tab-badge');
+  if(old)old.remove();
+  if(count>0){const b=document.createElement('span');b.className='mo-tab-badge';b.textContent=count;btn.appendChild(b);}
 }
 
 function renderMoComments(rec){
   const list=document.getElementById('commList');
-  const badge=document.getElementById('commBadge');
   if(!list)return;
   const comments=rec.comments||[];
-  if(badge){badge.textContent=comments.length||'';badge.classList.toggle('show',comments.length>0);}
+  _moTabBadge('moTabComm',comments.length);
   list.innerHTML=comments.length
     ?comments.map(c=>`<div class="comm-item">
         <div class="comm-hd">
@@ -1890,10 +1889,9 @@ function renderMoComments(rec){
 
 function renderMoHistory(rec){
   const body=document.getElementById('histBody');
-  const badge=document.getElementById('histBadge');
   if(!body)return;
   const history=rec.history||[];
-  if(badge){badge.textContent=history.length||'';badge.classList.toggle('show',history.length>0);}
+  _moTabBadge('moTabHist',history.length);
   body.innerHTML=history.length
     ?[...history].reverse().map(h=>`<div class="hist-item">
         <div class="hist-hd">
@@ -1907,7 +1905,7 @@ function renderMoHistory(rec){
           <span class="hist-to">${esc(ch.to||'—')}</span>
         </div>`).join('')}
       </div>`).join('')
-    :'<div class="comm-empty">История пустая</div>';
+    :'<div class="comm-empty">История пустая — изменения появятся после первого редактирования</div>';
 }
 
 async function addComment(){
@@ -1948,15 +1946,29 @@ async function saveMo(){
   if(S.moType==='content'){await saveContentMo();return;}
   const type=S.moType;
   const wasEdit=!!S.editId;
-  let rec;
+  let rec,prev;
   if(type==='shtat'){
     if(!gv('f_fio')||!gv('f_vid')||!gv('f_nav')){notify('Заполните обязательные поля: ФИО, Вид работы, Наименование ОР','error');return;}
-    const prev=S.editId?S.shtat.find(r=>r.id===S.editId):null;
+    prev=S.editId?S.shtat.find(r=>r.id===S.editId):null;
     rec={id:S.editId||genId(),fio:gv('f_fio'),vidRaboty:gv('f_vid'),tipOR:gv('f_tip'),navOR:gv('f_nav'),predpriyatie:gv('f_pred'),planVnePlan:gv('f_pvp'),dateStartPlan:gv('f_dsp'),dateEndPlan:gv('f_dep'),dateStartFact:gv('f_dsf'),dateEndFact:gv('f_def'),status:gv('f_stat'),kommentarii:gv('f_kom'),createdAt:prev?prev.createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
+    if(prev){
+      const track=['fio','vidRaboty','tipOR','navOR','predpriyatie','planVnePlan','dateStartPlan','dateEndPlan','dateStartFact','dateEndFact','status','kommentarii'];
+      const changes=track.filter(f=>(prev[f]||'')!==(rec[f]||'')).map(f=>({field:f,from:prev[f]||'',to:rec[f]||''}));
+      rec.comments=prev.comments||[];
+      rec.history=prev.history||[];
+      if(changes.length)rec.history=[...rec.history,{id:genId(),user:S.user||'Аноним',ts:new Date().toISOString(),changes}];
+    }
   }else{
     if(!gv('f_fioR')||!gv('f_vid')||!gv('f_nav')){notify('Заполните обязательные поля: ФИО, Вид работы, Наименование ОР','error');return;}
-    const prev=S.editId?S.gph.find(r=>r.id===S.editId):null;
+    prev=S.editId?S.gph.find(r=>r.id===S.editId):null;
     rec={id:S.editId||genId(),fioRazrab:gv('f_fioR'),fioKurator:gv('f_fioK'),vidRaboty:gv('f_vid'),tipOR:gv('f_tip'),navOR:gv('f_nav'),predpriyatie:gv('f_pred'),dateStart:gv('f_ds'),dateEnd:gv('f_de'),status:gv('f_stat'),kommentarii:gv('f_kom'),createdAt:prev?prev.createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
+    if(prev){
+      const track=['fioRazrab','fioKurator','vidRaboty','tipOR','navOR','predpriyatie','dateStart','dateEnd','status','kommentarii'];
+      const changes=track.filter(f=>(prev[f]||'')!==(rec[f]||'')).map(f=>({field:f,from:prev[f]||'',to:rec[f]||''}));
+      rec.comments=prev.comments||[];
+      rec.history=prev.history||[];
+      if(changes.length)rec.history=[...rec.history,{id:genId(),user:S.user||'Аноним',ts:new Date().toISOString(),changes}];
+    }
   }
   closeMo();
   try{
@@ -2218,6 +2230,92 @@ function openEmpPanel(name){
 function closeEmpPanel(){
   document.getElementById('empOverlay').classList.remove('show');
   document.getElementById('empDrawer').classList.remove('open');
+}
+
+// ── MY TASKS ───────────────────────────────────────────────
+function renderMyTasks(){
+  const wrap=document.getElementById('myWrap');
+  if(!wrap)return;
+  if(!S.user||S.user==='__mgr__'){
+    wrap.innerHTML=`<div class="empty" style="padding:60px 20px">
+      <div class="ei">👤</div>
+      <div class="et">Выберите пользователя</div>
+      <div class="ed">В боковом меню выберите своё имя, чтобы видеть личные задачи</div>
+    </div>`;
+    return;
+  }
+  const shtat=S.shtat.filter(r=>r.fio===S.user);
+  const gphDev=S.gph.filter(r=>r.fioRazrab===S.user);
+  const gphCur=S.gph.filter(r=>r.fioKurator===S.user);
+  const all=[...shtat,...gphDev];
+  const now=new Date();now.setHours(0,0,0,0);
+  const total=all.length;
+  const ip=all.filter(r=>ns_(r.status)==='В работе').length;
+  const done=all.filter(r=>ns_(r.status)==='Завершено').length;
+  const ov=all.filter(r=>{const d=new Date(r.dateEndPlan||r.dateEnd||'');return !isNaN(d)&&d<now&&ns_(r.status)!=='Завершено';}).length;
+  const soon=all.filter(r=>{if(ns_(r.status)==='Завершено')return false;const d=new Date(r.dateEndPlan||r.dateEnd||'');if(isNaN(d))return false;const diff=(d-now)/86400000;return diff>=0&&diff<=7;}).length;
+
+  function taskRow(r,isgph){
+    const dk=isgph?r.dateEnd:r.dateEndPlan;
+    const dc=dclass(dk,r.status);
+    const typeStr=[r.vidRaboty?nv(r.vidRaboty):'',r.tipOR].filter(Boolean).join(' · ');
+    const cc=(r.comments||[]).length;
+    return `<div class="emp-row ${dc}" style="margin-bottom:6px">
+      <div class="emp-row-body">
+        <div class="emp-row-title">${esc(r.navOR||'—')}</div>
+        <div class="emp-row-meta">
+          ${bdg(r.status)}
+          ${typeStr?`<span>${esc(typeStr)}</span>`:''}
+          ${r.predpriyatie?`<span>${esc(r.predpriyatie)}</span>`:''}
+          ${dk?`<span style="font-family:var(--mono);font-size:10.5px">📅 ${fmt(dk)}</span>`:''}
+          ${cc?`<span>💬 ${cc}</span>`:''}
+        </div>
+      </div>
+      <button class="ib" onclick="openModal('${isgph?'gph':'shtat'}','${r.id}')" title="Редактировать" style="flex-shrink:0">✏️</button>
+    </div>`;
+  }
+
+  function sortByDeadline(arr){
+    return [...arr].sort((a,b)=>{
+      const da=new Date(a.dateEndPlan||a.dateEnd||'9999-12-31');
+      const db=new Date(b.dateEndPlan||b.dateEnd||'9999-12-31');
+      return da-db;
+    });
+  }
+
+  const ovRows=all.filter(r=>{const d=new Date(r.dateEndPlan||r.dateEnd||'');return !isNaN(d)&&d<now&&ns_(r.status)!=='Завершено';});
+  const activeRows=all.filter(r=>{if(ns_(r.status)==='Завершено')return false;const d=new Date(r.dateEndPlan||r.dateEnd||'');return isNaN(d)||d>=now;});
+  const doneRows=all.filter(r=>ns_(r.status)==='Завершено');
+
+  function secHtml(icon,title,rows,color,isgph_ignored){
+    if(!rows.length)return '';
+    return `<div class="my-sec">
+      <div class="my-sec-hd" style="border-left-color:${color}">${icon} ${title}<span class="my-sec-cnt">${rows.length}</span></div>
+      ${sortByDeadline(rows).map(r=>taskRow(r,S.gph.includes(r))).join('')}
+    </div>`;
+  }
+
+  wrap.innerHTML=`
+    <div class="my-kpi">
+      <div class="kpi-c"><div class="kpi-l">Всего задач</div><div class="kpi-v">${total}</div><div class="kpi-s">Штат: ${shtat.length} · ГПХ: ${gphDev.length}</div></div>
+      <div class="kpi-c blue"><div class="kpi-l">В работе</div><div class="kpi-v">${ip}</div></div>
+      <div class="kpi-c ${ov?'red':''}"><div class="kpi-l">Просрочено</div><div class="kpi-v">${ov}</div></div>
+      <div class="kpi-c ${soon?'':''}"><div class="kpi-l">Дедлайн ≤ 7 дн.</div><div class="kpi-v">${soon}</div><div class="kpi-s">требуют внимания</div></div>
+      <div class="kpi-c green"><div class="kpi-l">Завершено</div><div class="kpi-v">${done}</div><div class="kpi-s">${total?Math.round(done/total*100):0}%</div></div>
+    </div>
+    ${total||gphCur.length?`
+      ${secHtml('⚠️','Просрочено',ovRows,'#ef4444')}
+      ${secHtml('📋','Активные задачи',activeRows,'#3b82f6')}
+      ${gphCur.length?`<div class="my-sec">
+        <div class="my-sec-hd" style="border-left-color:#f59e0b">🎯 Курирую (ГПХ)<span class="my-sec-cnt">${gphCur.length}</span></div>
+        ${sortByDeadline(gphCur).map(r=>taskRow(r,true)).join('')}
+      </div>`:''}
+      ${secHtml('✅','Завершённые',doneRows,'#22c55e')}
+    `:`<div class="empty" style="padding:48px 20px">
+      <div class="ei">🎉</div>
+      <div class="et">Задач нет</div>
+      <div class="ed">Назначьте себя на записи в разделах Штат или ГПХ</div>
+    </div>`}`;
 }
 
 function renderKbCol({label,color}){
