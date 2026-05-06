@@ -261,6 +261,7 @@ textarea.fc{resize:vertical;min-height:64px}
 .notif{position:fixed;bottom:20px;right:20px;background:#111827;color:#fff;padding:11px 16px;border-radius:var(--r);font-size:13px;font-weight:500;z-index:200;animation:slin .2s ease;max-width:300px;display:flex;align-items:center;gap:8px;box-shadow:0 8px 24px rgba(0,0,0,.25)}
 .notif.success{background:#166534}
 .notif.error{background:#7f1d1d}
+.notif.info{background:#1e40af}
 @keyframes slin{from{transform:translateY(14px);opacity:0}to{transform:translateY(0);opacity:1}}
 
 ::-webkit-scrollbar{width:5px;height:5px}
@@ -822,7 +823,14 @@ create table if not exists or_backups (
 );
 alter table or_backups enable row level security;
 create policy "anon_all" on or_backups
-  for all using (true) with check (true);<button class="sql-copy" onclick="copySql()">Копировать</button></div>
+  for all using (true) with check (true);
+
+-- ⚡ Realtime-синхронизация между пользователями
+-- Выполните отдельно если таблицы уже существуют:
+alter publication supabase_realtime add table or_shtat;
+alter publication supabase_realtime add table or_gph;
+alter publication supabase_realtime add table or_content;
+alter publication supabase_realtime add table or_ref;<button class="sql-copy" onclick="copySql()">Копировать</button></div>
           <p style="font-size:12px;color:var(--t3);margin-top:8px">После выполнения SQL нажмите <strong>«🔌 База данных»</strong> в боковом меню и введите URL и anon-ключ проекта.</p>
         </div>
         <div class="mgr-c">
@@ -974,6 +982,7 @@ async function connectDB(){
     setDbStatus('ok');hideDBSetup();
     showLoader(true,'Загрузка данных из Supabase…');
     await loadRefFromDB();await loadDataFromDB();
+    startRealtimeSync();
     syncUserSel();updBg();render();
     showLoader(false);
     notify('Supabase подключён ✓','success');
@@ -1052,6 +1061,7 @@ async function dbUpsert(table,rec){
   markDirty();
   localStorage.setItem('or_'+table,JSON.stringify(arr));
   if(!dbClient) return;
+  markOwnWrite(rec.id); // не реагировать на echo своей же записи
   const {error}=await dbClient.from('or_'+table).upsert({id:rec.id,data:rec,updated_at:rec.updatedAt});
   if(error){setDbStatus('err');throw error;}
   markSaved();
@@ -1128,6 +1138,8 @@ async function saveAll(){
     localStorage.setItem('or_gph',     JSON.stringify(S.gph));
     localStorage.setItem('or_content', JSON.stringify(S.content));
     if(dbClient){
+      // Маркируем все ID как собственные записи — игнорировать realtime-эхо
+      [...S.shtat,...S.gph,...S.content].forEach(r=>markOwnWrite(r.id));
       const sr = S.shtat.map(r=>({id:r.id, data:r, updated_at:r.updatedAt||new Date().toISOString()}));
       const gr = S.gph.map(r=>({id:r.id, data:r, updated_at:r.updatedAt||new Date().toISOString()}));
       const cr = S.content.map(r=>({id:r.id, data:r, updated_at:r.updatedAt||new Date().toISOString()}));
@@ -1174,6 +1186,84 @@ function startAutoSave(){
     countdownVal = 45;
     if(S.dirty) await saveAll();
   }, 45000);
+}
+
+// ── REALTIME SYNC ──────────────────────────────────────────
+// Защита от echo: если мы сами только что записали эту строку —
+// игнорируем входящее realtime-событие (Supabase шлёт его и автору тоже)
+const _ownWrites = new Set();
+function markOwnWrite(id){
+  _ownWrites.add(id);
+  setTimeout(()=>_ownWrites.delete(id), 4000);
+}
+
+let _rtChannel = null;
+let _rtNotifyTimer = null;
+
+function startRealtimeSync(){
+  if(!dbClient || _rtChannel) return;
+
+  // Дебаунс уведомления: много изменений сразу → одно сообщение
+  function notifyUpdate(){
+    if(_rtNotifyTimer) return;
+    _rtNotifyTimer = setTimeout(()=>{
+      notify('🔄 Данные обновлены другим пользователем','info');
+      _rtNotifyTimer = null;
+    }, 600);
+  }
+
+  function applyChange(table, payload){
+    const {eventType, new: newRow, old: oldRow} = payload;
+
+    // Пропускаем наши собственные записи
+    const changedId = (newRow||oldRow||{}).id;
+    if(changedId && _ownWrites.has(changedId)) return;
+
+    if(table === 'or_ref'){
+      // Справочники маленькие — грузим целиком
+      loadRefFromDB().then(()=>{ renderCfg(); syncUserSel(); });
+      notifyUpdate();
+      return;
+    }
+
+    const key = table === 'or_shtat' ? 'shtat' : table === 'or_gph' ? 'gph' : 'content';
+    const arr = S[key];
+
+    if(eventType === 'INSERT' || eventType === 'UPDATE'){
+      // Данные в поле data JSONB, id — отдельное поле
+      const rec = newRow.data ? {...newRow.data, id: newRow.id} : {...newRow};
+      const idx = arr.findIndex(r => r.id === rec.id);
+
+      // Если эта запись сейчас открыта в модалке — не трогаем, предупреждаем
+      if(S.editId === rec.id){
+        notify('⚠️ Эта запись изменена другим пользователем', 'error');
+        return;
+      }
+
+      if(idx >= 0) arr[idx] = rec; else arr.push(rec);
+      localStorage.setItem('or_' + key, JSON.stringify(arr));
+    } else if(eventType === 'DELETE'){
+      const id = (oldRow||{}).id;
+      if(!id) return;
+      if(S.editId === id) closeMo();
+      const idx = arr.findIndex(r => r.id === id);
+      if(idx >= 0){ arr.splice(idx,1); localStorage.setItem('or_'+key, JSON.stringify(arr)); }
+    }
+
+    updBg();
+    render();
+    notifyUpdate();
+  }
+
+  _rtChannel = dbClient.channel('or-live-v1')
+    .on('postgres_changes',{event:'*',schema:'public',table:'or_shtat'},  p=>applyChange('or_shtat',p))
+    .on('postgres_changes',{event:'*',schema:'public',table:'or_gph'},    p=>applyChange('or_gph',p))
+    .on('postgres_changes',{event:'*',schema:'public',table:'or_content'},p=>applyChange('or_content',p))
+    .on('postgres_changes',{event:'*',schema:'public',table:'or_ref'},    p=>applyChange('or_ref',p))
+    .subscribe(status=>{
+      if(status==='SUBSCRIBED') console.log('[Realtime] подписка активна');
+      if(status==='CHANNEL_ERROR') console.warn('[Realtime] ошибка канала — возможно, таблицы не добавлены в публикацию. Выполните SQL из Менеджера.');
+    });
 }
 
 // ── BACKUPS ────────────────────────────────────────────────
@@ -2562,6 +2652,7 @@ async function init(){
       await loadRefFromDB();
       await loadDataFromDB();
       markSaved();
+      startRealtimeSync(); // WebSocket-подписка на изменения от других пользователей
     }catch(e){
       console.error('init DB load:',e);
       notify('Ошибка загрузки из Supabase — работаем офлайн','error');
