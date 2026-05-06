@@ -422,8 +422,13 @@ textarea.fc{resize:vertical;min-height:64px}
 .my-pg{padding:20px}
 .my-kpi{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:18px}
 .my-sec{margin-bottom:14px}
-.my-sec-hd{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:var(--rs);background:var(--white);border:1px solid var(--bd);border-left:4px solid var(--bd);font-size:11px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.3px;margin-bottom:7px}
+.my-sec-hd{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:var(--rs);background:var(--white);border:1px solid var(--bd);border-left:4px solid var(--bd);font-size:11px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.3px;margin-bottom:7px;cursor:pointer;user-select:none;transition:background .12s}
+.my-sec-hd:hover{background:#f8fafc}
 .my-sec-cnt{font-family:var(--mono);background:var(--bg);padding:1px 7px;border-radius:10px;font-size:10.5px;color:var(--t3);font-weight:500;text-transform:none;margin-left:auto}
+.my-sec-arr{font-size:11px;color:var(--t3);transition:transform .2s;flex-shrink:0;margin-left:4px}
+.my-sec.collapsed .my-sec-arr{transform:rotate(-90deg)}
+.my-sec-body{}
+.my-sec.collapsed .my-sec-body{display:none}
 
 /* GROUPBY */
 .grp-sel{padding:5px 9px;border:1px solid var(--bd);border-radius:var(--rs);font-family:var(--font);font-size:12.5px;color:var(--t2);background:var(--bg);cursor:pointer;outline:none;transition:border-color .15s}
@@ -1297,6 +1302,10 @@ let S={shtat:[],gph:[],content:[],user:'',tab:'shtat',editId:null,moType:'shtat'
   f:{fio:new Set(),stat:new Set(),vid:new Set(),tip:new Set(),q:'',dateFrom:'',dateTo:''},
   chSrc:{stat:'shtat',pers:'shtat'},
   charts:{}, dirty:false, saving:false, lastSaved:null, justSaved:false, cntView:'kanban', groupBy:''};
+
+// Состояние сворачивания секций «Мои задачи» — сохраняется между ре-рендерами
+// done=false: завершённые свёрнуты по умолчанию (накапливается больше всего)
+const _mySec={ov:true,active:true,cur:true,done:false};
 
 // ── STORAGE ────────────────────────────────────────────────
 function loadLocal(){
@@ -2313,13 +2322,32 @@ function renderMyTasks(){
   const activeRows=all.filter(r=>{if(ns_(r.status)==='Завершено')return false;const d=new Date(r.dateEndPlan||r.dateEnd||'');return isNaN(d)||d>=now;});
   const doneRows=all.filter(r=>ns_(r.status)==='Завершено');
 
-  function secHtml(icon,title,rows,color,isgph_ignored){
+  function secHtml(icon,title,rows,color,key){
     if(!rows.length)return '';
-    return `<div class="my-sec">
-      <div class="my-sec-hd" style="border-left-color:${color}">${icon} ${title}<span class="my-sec-cnt">${rows.length}</span></div>
-      ${sortByDeadline(rows).map(r=>taskRow(r,S.gph.includes(r))).join('')}
+    const open=_mySec[key]!==false;
+    return `<div class="my-sec${open?'':' collapsed'}" data-sec="${key}">
+      <div class="my-sec-hd" style="border-left-color:${color}" onclick="toggleSec('${key}')">
+        ${icon} ${title}
+        <span class="my-sec-cnt">${rows.length}</span>
+        <span class="my-sec-arr" title="${open?'Свернуть':'Развернуть'}">▾</span>
+      </div>
+      <div class="my-sec-body">
+        ${sortByDeadline(rows).map(r=>taskRow(r,S.gph.includes(r))).join('')}
+      </div>
     </div>`;
   }
+
+  const curOpen=_mySec.cur!==false;
+  const curSec=gphCur.length?`<div class="my-sec${curOpen?'':' collapsed'}" data-sec="cur">
+    <div class="my-sec-hd" style="border-left-color:#f59e0b" onclick="toggleSec('cur')">
+      🎯 Курирую (ГПХ)
+      <span class="my-sec-cnt">${gphCur.length}</span>
+      <span class="my-sec-arr" title="${curOpen?'Свернуть':'Развернуть'}">▾</span>
+    </div>
+    <div class="my-sec-body">
+      ${sortByDeadline(gphCur).map(r=>taskRow(r,true)).join('')}
+    </div>
+  </div>`:'';
 
   wrap.innerHTML=`
     <div class="my-kpi">
@@ -2330,18 +2358,25 @@ function renderMyTasks(){
       <div class="kpi-c green"><div class="kpi-l">Завершено</div><div class="kpi-v">${done}</div><div class="kpi-s">${total?Math.round(done/total*100):0}%</div></div>
     </div>
     ${total||gphCur.length?`
-      ${secHtml('⚠️','Просрочено',ovRows,'#ef4444')}
-      ${secHtml('📋','Активные задачи',activeRows,'#3b82f6')}
-      ${gphCur.length?`<div class="my-sec">
-        <div class="my-sec-hd" style="border-left-color:#f59e0b">🎯 Курирую (ГПХ)<span class="my-sec-cnt">${gphCur.length}</span></div>
-        ${sortByDeadline(gphCur).map(r=>taskRow(r,true)).join('')}
-      </div>`:''}
-      ${secHtml('✅','Завершённые',doneRows,'#22c55e')}
+      ${secHtml('⚠️','Просрочено',ovRows,'#ef4444','ov')}
+      ${secHtml('📋','Активные задачи',activeRows,'#3b82f6','active')}
+      ${curSec}
+      ${secHtml('✅','Завершённые',doneRows,'#22c55e','done')}
     `:`<div class="empty" style="padding:48px 20px">
       <div class="ei">🎉</div>
       <div class="et">Задач нет</div>
       <div class="ed">Назначьте себя на записи в разделах Штат или ГПХ</div>
     </div>`}`;
+}
+
+function toggleSec(key){
+  _mySec[key]=!_mySec[key];
+  const el=document.querySelector(`.my-sec[data-sec="${key}"]`);
+  if(el){
+    el.classList.toggle('collapsed',!_mySec[key]);
+    const arr=el.querySelector('.my-sec-arr');
+    if(arr)arr.title=_mySec[key]?'Свернуть':'Развернуть';
+  }
 }
 
 function renderKbCol({label,color}){
