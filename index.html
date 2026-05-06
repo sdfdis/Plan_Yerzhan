@@ -541,6 +541,39 @@ textarea.fc{resize:vertical;min-height:64px}
 .cc-text{font-size:13px;color:var(--t2);text-align:center;line-height:1.65;margin-bottom:6px}
 .cc-note{font-size:12px;color:#15803d;text-align:center;background:#f0fdf4;border-radius:var(--rs);padding:8px 14px;margin-bottom:20px}
 .cc-btns{display:flex;gap:10px;justify-content:center}
+
+/* GLOBAL SEARCH */
+.gs-trigger-btn{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border:1px solid var(--bd);border-radius:var(--rs);background:var(--bg);color:var(--t3);font-family:var(--font);font-size:12px;cursor:pointer;transition:all .15s;white-space:nowrap}
+.gs-trigger-btn:hover{border-color:#adb5bd;color:var(--t2);background:#fff}
+.gs-trigger-kbd{font-size:10px;background:#f1f5f9;border:1px solid var(--bd);border-radius:3px;padding:1px 5px;font-family:var(--mono);color:var(--t3)}
+@media(max-width:768px){.gs-trigger-lbl{display:none}}
+.gs-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;display:none;align-items:flex-start;justify-content:center;padding-top:80px}
+.gs-overlay.open{display:flex}
+.gs-box{background:var(--white);border-radius:var(--r);width:100%;max-width:580px;box-shadow:0 24px 64px rgba(0,0,0,.28);overflow:hidden;animation:gsIn .15s ease}
+@keyframes gsIn{from{transform:translateY(-12px);opacity:0}to{transform:translateY(0);opacity:1}}
+.gs-inp-wrap{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--bd)}
+.gs-ic{font-size:16px;flex-shrink:0;color:var(--t3)}
+.gs-inp{flex:1;border:none;outline:none;font-family:var(--font);font-size:15px;color:var(--t1);background:transparent}
+.gs-inp::placeholder{color:var(--t3)}
+.gs-kbd-hint{font-size:11px;color:var(--t3);background:#f1f5f9;border:1px solid var(--bd);border-radius:4px;padding:2px 7px;font-family:var(--mono);flex-shrink:0}
+.gs-results{max-height:400px;overflow-y:auto}
+.gs-hint{padding:28px;text-align:center;font-size:13px;color:var(--t3)}
+.gs-group-hd{padding:8px 16px 5px;font-size:10.5px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--bd);background:#fafafa}
+.gs-item{display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;border-bottom:1px solid #f1f5f9;transition:background .1s}
+.gs-item:hover,.gs-item.gs-active{background:#eff6ff}
+.gs-item-main{flex:1;min-width:0}
+.gs-item-title{font-size:13px;font-weight:500;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gs-item-meta{font-size:11.5px;color:var(--t3);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gs-empty{padding:28px;text-align:center;font-size:13px;color:var(--t3)}
+.gs-footer{padding:7px 16px;border-top:1px solid var(--bd);display:flex;gap:14px;font-size:11.5px;color:var(--t3);background:#fafafa;flex-wrap:wrap}
+.gs-footer kbd{background:var(--bg);border:1px solid var(--bd);border-radius:3px;padding:1px 5px;font-family:var(--mono);font-size:10px;color:var(--t2);margin-right:3px}
+/* ARCHIVE */
+.arc-toggle{display:inline-flex;align-items:center;gap:4px;padding:5px 11px;border-radius:var(--rs);border:1px solid var(--bd);background:var(--bg);color:var(--t2);font-family:var(--font);font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;white-space:nowrap}
+.arc-toggle:hover{border-color:#adb5bd;background:#f0f0f0}
+.arc-toggle.active{border-color:#8b5cf6;background:#f5f3ff;color:#6d28d9}
+.arc-cnt{background:#ede9fe;color:#6d28d9;border-radius:10px;font-size:10px;font-weight:700;padding:1px 5px;font-family:var(--mono);line-height:1.5}
+tr.row-arc td{background:#f8fafc}
+tr.row-arc .tc-name,tr.row-arc .tc-m,tr.row-arc .tc-d,tr.row-arc .tc-cm{color:var(--t3)}
 </style>
 </head>
 <body>
@@ -598,6 +631,10 @@ textarea.fc{resize:vertical;min-height:64px}
     </button>
     <div class="topbar-title" id="pgtitle">Штат</div>
     <div class="tb-sep"></div>
+    <button class="gs-trigger-btn" onclick="openGlobalSearch()" title="Глобальный поиск (Ctrl+K)">
+      🔍 <span class="gs-trigger-lbl">Поиск везде</span>
+      <span class="gs-trigger-kbd">⌘K</span>
+    </button>
     <div class="srch-wrap" id="srchWrap">
       <span class="srch-ic">🔍</span>
       <input type="text" class="srch" id="srchIn" placeholder="Поиск…" oninput="doSearch(this.value)">
@@ -665,6 +702,7 @@ textarea.fc{resize:vertical;min-height:64px}
       <option value="vidRaboty">По виду работы</option>
     </select>
     <button class="f-reset hidden" id="f-reset" onclick="resetAll()">✕ Сбросить фильтры</button>
+    <button class="arc-toggle" id="arcToggleBtn" onclick="toggleArchiveView()">🗄️ Архив</button>
   </div>
 
   <div class="rcount" id="rcount" style="display:none">
@@ -913,6 +951,25 @@ alter publication supabase_realtime add table or_ref;<button class="sql-copy" on
     <div class="cc-btns">
       <button class="btn btn-g" onclick="hideClearConfirm()">Отмена</button>
       <button class="btn btn-dg" id="ccConfirmBtn" onclick="confirmClearAll()">🗑️ Да, удалить всё</button>
+    </div>
+  </div>
+</div>
+
+<!-- Global Search -->
+<div class="gs-overlay" id="gsOverlay" onclick="gsOverlayClick(event)">
+  <div class="gs-box">
+    <div class="gs-inp-wrap">
+      <span class="gs-ic">🔍</span>
+      <input class="gs-inp" id="gsInp" placeholder="Поиск по всем разделам…" oninput="doGlobalSearch(this.value)" autocomplete="off" spellcheck="false">
+      <span class="gs-kbd-hint">Esc</span>
+    </div>
+    <div class="gs-results" id="gsResults">
+      <div class="gs-hint">Начните вводить для поиска по Штату, ГПХ и Контент-плану</div>
+    </div>
+    <div class="gs-footer">
+      <span><kbd>↑</kbd><kbd>↓</kbd> навигация</span>
+      <span><kbd>Enter</kbd> открыть</span>
+      <span><kbd>Esc</kbd> закрыть</span>
     </div>
   </div>
 </div>
@@ -1404,7 +1461,7 @@ const DLABELS={fio:'Сотрудник',stat:'Статус',vid:'Вид рабо
 let S={shtat:[],gph:[],content:[],user:'',tab:'shtat',editId:null,moType:'shtat',
   f:{fio:new Set(),stat:new Set(),vid:new Set(),tip:new Set(),q:'',dateFrom:'',dateTo:''},
   chSrc:{stat:'shtat',pers:'shtat'},
-  charts:{}, dirty:false, saving:false, lastSaved:null, justSaved:false, cntView:'kanban', groupBy:''};
+  charts:{}, dirty:false, saving:false, lastSaved:null, justSaved:false, cntView:'kanban', groupBy:'', showArchived:false};
 
 // Состояние сворачивания секций «Мои задачи» — сохраняется между ре-рендерами и перезагрузками
 // done=false: завершённые свёрнуты по умолчанию (накапливается больше всего)
@@ -1420,10 +1477,20 @@ function loadLocal(){
   if(S.user)document.getElementById('userSel').value=S.user;
 }
 function updBg(){
-  document.getElementById('bg-shtat').textContent=S.shtat.length;
-  document.getElementById('bg-gph').textContent=S.gph.length;
+  document.getElementById('bg-shtat').textContent=S.shtat.filter(r=>!r.archived).length;
+  document.getElementById('bg-gph').textContent=S.gph.filter(r=>!r.archived).length;
   const bgCnt=document.getElementById('bg-cnt');
   if(bgCnt) bgCnt.textContent=S.content.length;
+  // Update archive toggle button label with count
+  const arcBtn=document.getElementById('arcToggleBtn');
+  if(arcBtn){
+    const arcShtat=S.shtat.filter(r=>r.archived).length;
+    const arcGph=S.gph.filter(r=>r.archived).length;
+    const total=arcShtat+arcGph;
+    arcBtn.innerHTML=total
+      ? `🗄️ Архив <span class="arc-cnt">${total}</span>`
+      : '🗄️ Архив';
+  }
 }
 function setUser(v){S.user=v;localStorage.setItem('or_user',v);if(S.tab==='my')renderMyTasks();}
 
@@ -1441,6 +1508,9 @@ function go(tab){
   document.getElementById('rcount').style.display=tbl?'':'none';
   if(!tbl){S.groupBy='';const gs=document.getElementById('groupBySel');if(gs)gs.value='';}
   resetAll(true);
+  S.showArchived=false;
+  const arcBtn=document.getElementById('arcToggleBtn');
+  if(arcBtn){arcBtn.classList.remove('active');arcBtn.style.display=tbl?'':'none';}
   document.getElementById('srchIn').value='';S.f.q='';
   render();
 }
@@ -1581,9 +1651,10 @@ async function setRecStatus(table,id,status){
 
 // ── FILTER ────────────────────────────────────────────────
 function filtered(data,isgph){
+  const base = S.showArchived ? data.filter(r=>r.archived) : data.filter(r=>!r.archived);
   const nk=isgph?'fioRazrab':'fio';
   const dk=isgph?'dateEnd':'dateEndPlan';
-  return data.filter(r=>{
+  return base.filter(r=>{
     if(S.f.fio.size&&!S.f.fio.has((r[nk]||'').trim()))return false;
     if(S.f.stat.size&&!S.f.stat.has(ns_(r.status)))return false;
     if(S.f.vid.size&&!S.f.vid.has(nv(r.vidRaboty)))return false;
@@ -1647,7 +1718,8 @@ function gbKey(r,key,isgph){
 
 function renderShtat(){
   const data=filtered(S.shtat,false);
-  renderRcount(data.length,S.shtat.length);
+  const baseTotal=S.showArchived?S.shtat.filter(r=>r.archived).length:S.shtat.filter(r=>!r.archived).length;
+  renderRcount(data.length,baseTotal);
   const tb=document.getElementById('shtatBody');
   if(!data.length){tb.innerHTML=`<tr><td colspan="14">${emptyHtml()}</td></tr>`;return;}
   function shtatRow(r,i){
@@ -1655,7 +1727,7 @@ function renderShtat(){
     const ec='tc-d'+(dc?' '+dc:'');
     const w=dc==='ov'?' ⚠️':dc==='sn'?' 🔔':'';
     const cc=(r.comments||[]).length;
-    return `<tr class="${dc==='ov'?'row-ov':dc==='sn'?'row-sn':''}">
+    return `<tr class="${S.showArchived?'row-arc':dc==='ov'?'row-ov':dc==='sn'?'row-sn':''}">
       <td class="tc-n">${i+1}</td>
       <td class="tc-m" style="white-space:nowrap"><span class="name-link" data-fio="${esc(r.fio)}" onclick="openEmpPanel(this.dataset.fio)" title="Профиль сотрудника">${esc(r.fio||'—')}</span></td>
       <td class="tc-m">${esc(nv(r.vidRaboty)||'—')}</td>
@@ -1670,7 +1742,10 @@ function renderShtat(){
       <td><span class="badge-btn" onclick="openStatusPicker(event,'shtat','${r.id}')" title="Сменить статус">${bdg(r.status)}</span></td>
       <td class="tc-cm" title="${esc(r.kommentarii||'')}">${esc(r.kommentarii||'')}${cc?`<span style="color:var(--t3);font-size:10px;margin-left:4px">💬${cc}</span>`:''}</td>
       <td><div class="tc-act">
-        <button class="ib" onclick="openModal('shtat','${r.id}')" title="Редактировать">✏️</button>
+        ${S.showArchived
+          ? `<button class="ib" onclick="unarchiveRec('shtat','${r.id}')" title="Разархивировать">🔄</button>`
+          : `<button class="ib" onclick="openModal('shtat','${r.id}')" title="Редактировать">✏️</button>
+             <button class="ib" onclick="archiveRec('shtat','${r.id}')" title="Архивировать">📦</button>`}
         <button class="ib del" onclick="del('shtat','${r.id}')" title="Удалить">🗑️</button>
       </div></td>
     </tr>`;
@@ -1688,7 +1763,8 @@ function renderShtat(){
 
 function renderGph(){
   const data=filtered(S.gph,true);
-  renderRcount(data.length,S.gph.length);
+  const baseTotal=S.showArchived?S.gph.filter(r=>r.archived).length:S.gph.filter(r=>!r.archived).length;
+  renderRcount(data.length,baseTotal);
   const tb=document.getElementById('gphBody');
   if(!data.length){tb.innerHTML=`<tr><td colspan="12">${emptyHtml()}</td></tr>`;return;}
   function gphRow(r,i){
@@ -1696,7 +1772,7 @@ function renderGph(){
     const ec='tc-d'+(dc?' '+dc:'');
     const w=dc==='ov'?' ⚠️':dc==='sn'?' 🔔':'';
     const cc=(r.comments||[]).length;
-    return `<tr class="${dc==='ov'?'row-ov':dc==='sn'?'row-sn':''}">
+    return `<tr class="${S.showArchived?'row-arc':dc==='ov'?'row-ov':dc==='sn'?'row-sn':''}">
       <td class="tc-n">${i+1}</td>
       <td class="tc-m" style="white-space:nowrap"><span class="name-link" data-fio="${esc(r.fioRazrab)}" onclick="openEmpPanel(this.dataset.fio)" title="Профиль разработчика">${esc(r.fioRazrab||'—')}</span></td>
       <td class="tc-m" style="white-space:nowrap"><span class="name-link" data-fio="${esc(r.fioKurator)}" onclick="openEmpPanel(this.dataset.fio)" title="Профиль куратора">${esc(r.fioKurator||'—')}</span></td>
@@ -1709,7 +1785,10 @@ function renderGph(){
       <td><span class="badge-btn" onclick="openStatusPicker(event,'gph','${r.id}')" title="Сменить статус">${bdg(r.status)}</span></td>
       <td class="tc-cm" title="${esc(r.kommentarii||'')}">${esc(r.kommentarii||'')}${cc?`<span style="color:var(--t3);font-size:10px;margin-left:4px">💬${cc}</span>`:''}</td>
       <td><div class="tc-act">
-        <button class="ib" onclick="openModal('gph','${r.id}')" title="Редактировать">✏️</button>
+        ${S.showArchived
+          ? `<button class="ib" onclick="unarchiveRec('gph','${r.id}')" title="Разархивировать">🔄</button>`
+          : `<button class="ib" onclick="openModal('gph','${r.id}')" title="Редактировать">✏️</button>
+             <button class="ib" onclick="archiveRec('gph','${r.id}')" title="Архивировать">📦</button>`}
         <button class="ib del" onclick="del('gph','${r.id}')" title="Удалить">🗑️</button>
       </div></td>
     </tr>`;
@@ -1730,7 +1809,7 @@ function emptyHtml(){return `<div class="empty"><div class="ei">📭</div><div c
 // ── DASHBOARD ──────────────────────────────────────────────
 function renderDash(){renderKPI();renderDL();requestAnimationFrame(()=>renderCharts());}
 function renderKPI(){
-  const all=[...S.shtat,...S.gph];
+  const all=[...S.shtat.filter(r=>!r.archived),...S.gph.filter(r=>!r.archived)];
   const done=all.filter(r=>ns_(r.status)==='Завершено').length;
   const ip=all.filter(r=>ns_(r.status)==='В работе').length;
   const ns=all.filter(r=>ns_(r.status)==='Не начато').length;
@@ -1756,9 +1835,9 @@ function setChSrc(chart,src,btn){
 
 function getSrc(key){
   const s=S.chSrc[key];
-  if(s==='shtat') return S.shtat;
-  if(s==='gph') return S.gph;
-  return [...S.shtat,...S.gph];
+  if(s==='shtat') return S.shtat.filter(r=>!r.archived);
+  if(s==='gph') return S.gph.filter(r=>!r.archived);
+  return [...S.shtat,...S.gph].filter(r=>!r.archived);
 }
 
 function mkChart(id,type,data,opts){
@@ -1827,14 +1906,14 @@ function renderChartPers(){
 function renderCharts(){
   renderChartStat();
   renderChartPers();
-  const vc={};[...S.shtat,...S.gph].forEach(r=>{const v=nv(r.vidRaboty)||'Не указано';vc[v]=(vc[v]||0)+1;});
+  const vc={};[...S.shtat.filter(r=>!r.archived),...S.gph.filter(r=>!r.archived)].forEach(r=>{const v=nv(r.vidRaboty)||'Не указано';vc[v]=(vc[v]||0)+1;});
   const vl=Object.keys(vc).sort((a,b)=>vc[b]-vc[a]);
   mkChart('cVid','bar',{labels:vl,datasets:[{label:'Задач',data:vl.map(l=>vc[l]),backgroundColor:['#e8a020','#3b82f6','#22c55e','#8b5cf6','#f97316','#ef4444'].slice(0,vl.length),borderRadius:4}]},{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,ticks:{stepSize:1,font:{size:10}}},y:{grid:{display:false},ticks:{font:{size:10.5}}}}});
 }
 function renderDL(){
   const now=new Date();now.setHours(0,0,0,0);
   const d30=new Date(now);d30.setDate(d30.getDate()+30);
-  const items=[...S.shtat.filter(r=>{const d=new Date(r.dateEndPlan||'');return !isNaN(d)&&d<=d30&&ns_(r.status)!=='Завершено';}), ...S.gph.filter(r=>{const d=new Date(r.dateEnd||'');return !isNaN(d)&&d<=d30&&ns_(r.status)!=='Завершено';})].sort((a,b)=>new Date(a.dateEndPlan||a.dateEnd)-new Date(b.dateEndPlan||b.dateEnd)).slice(0,10);
+  const items=[...S.shtat.filter(r=>{if(r.archived)return false;const d=new Date(r.dateEndPlan||'');return !isNaN(d)&&d<=d30&&ns_(r.status)!=='Завершено';}), ...S.gph.filter(r=>{if(r.archived)return false;const d=new Date(r.dateEnd||'');return !isNaN(d)&&d<=d30&&ns_(r.status)!=='Завершено';})].sort((a,b)=>new Date(a.dateEndPlan||a.dateEnd)-new Date(b.dateEndPlan||b.dateEnd)).slice(0,10);
   const el=document.getElementById('dlList');
   if(!items.length){el.innerHTML='<div style="color:var(--t3);font-size:13px;padding:20px;text-align:center">Нет предстоящих дедлайнов 🎉</div>';return;}
   el.innerHTML=items.map(r=>{
@@ -2331,9 +2410,9 @@ function renderCntDash(){
 
 function openEmpPanel(name){
   if(!name||name==='—') return;
-  const shtat=S.shtat.filter(r=>r.fio===name);
-  const gphDev=S.gph.filter(r=>r.fioRazrab===name);
-  const gphCur=S.gph.filter(r=>r.fioKurator===name);
+  const shtat=S.shtat.filter(r=>r.fio===name&&!r.archived);
+  const gphDev=S.gph.filter(r=>r.fioRazrab===name&&!r.archived);
+  const gphCur=S.gph.filter(r=>r.fioKurator===name&&!r.archived);
   const all=[...shtat,...gphDev];
   const total=all.length;
   const ip=all.filter(r=>ns_(r.status)==='В работе').length;
@@ -2407,9 +2486,9 @@ function renderMyTasks(){
     </div>`;
     return;
   }
-  const shtat=S.shtat.filter(r=>r.fio===S.user);
-  const gphDev=S.gph.filter(r=>r.fioRazrab===S.user);
-  const gphCur=S.gph.filter(r=>r.fioKurator===S.user);
+  const shtat=S.shtat.filter(r=>r.fio===S.user&&!r.archived);
+  const gphDev=S.gph.filter(r=>r.fioRazrab===S.user&&!r.archived);
+  const gphCur=S.gph.filter(r=>r.fioKurator===S.user&&!r.archived);
   const all=[...shtat,...gphDev];
   const now=new Date();now.setHours(0,0,0,0);
   const total=all.length;
@@ -2648,6 +2727,197 @@ document.addEventListener('click',e=>{
   if(!e.target.closest('.sp-pop')&&!e.target.closest('.badge-btn'))document.getElementById('spPop').classList.remove('open');
 });
 
+// ── GLOBAL SEARCH ──────────────────────────────────────────
+let _gsItems = []; // flat list of current result items for keyboard nav
+let _gsIdx = -1;   // currently highlighted item index
+
+function openGlobalSearch(){
+  document.getElementById('gsOverlay').classList.add('open');
+  const inp = document.getElementById('gsInp');
+  inp.value = '';
+  _gsItems = []; _gsIdx = -1;
+  document.getElementById('gsResults').innerHTML = '<div class="gs-hint">Начните вводить для поиска по Штату, ГПХ и Контент-плану</div>';
+  setTimeout(()=>inp.focus(), 50);
+}
+
+function closeGlobalSearch(){
+  document.getElementById('gsOverlay').classList.remove('open');
+  _gsItems = []; _gsIdx = -1;
+}
+
+function gsOverlayClick(e){
+  if(e.target === document.getElementById('gsOverlay')) closeGlobalSearch();
+}
+
+function doGlobalSearch(q){
+  const res = document.getElementById('gsResults');
+  q = (q||'').trim();
+  if(q.length < 2){ res.innerHTML='<div class="gs-hint">Начните вводить для поиска по Штату, ГПХ и Контент-плану</div>'; _gsItems=[]; _gsIdx=-1; return; }
+  const ql = q.toLowerCase();
+  const MAX = 8;
+
+  function matchRec(r, fields){ return fields.some(f=>(r[f]||'').toLowerCase().includes(ql)); }
+
+  const shtatHits = S.shtat.filter(r=>!r.archived && matchRec(r,['navOR','fio','predpriyatie','tipOR','kommentarii'])).slice(0,MAX);
+  const gphHits   = S.gph.filter(r=>!r.archived   && matchRec(r,['navOR','fioRazrab','fioKurator','predpriyatie','tipOR','kommentarii'])).slice(0,MAX);
+  const cntHits   = S.content.filter(r=>matchRec(r,['title','responsible','text','comment'])).slice(0,MAX);
+
+  if(!shtatHits.length && !gphHits.length && !cntHits.length){
+    res.innerHTML = '<div class="gs-empty">Ничего не найдено по «' + esc(q) + '»</div>';
+    _gsItems = []; _gsIdx = -1;
+    return;
+  }
+
+  _gsItems = [];
+  let html = '';
+
+  if(shtatHits.length){
+    html += '<div class="gs-group-hd">👥 Штат</div>';
+    shtatHits.forEach(r=>{
+      const meta = [r.fio, ns_(r.status), r.predpriyatie].filter(Boolean).join(' · ');
+      html += `<div class="gs-item" data-gtype="shtat" data-gid="${r.id}" onclick="gsOpenResult('shtat','${r.id}')">
+        <div class="gs-item-main">
+          <div class="gs-item-title">${esc(r.navOR||'—')}</div>
+          <div class="gs-item-meta">${esc(meta)}</div>
+        </div>
+        ${bdg(r.status)}
+      </div>`;
+      _gsItems.push({type:'shtat',id:r.id});
+    });
+  }
+  if(gphHits.length){
+    html += '<div class="gs-group-hd">📋 ГПХ</div>';
+    gphHits.forEach(r=>{
+      const meta = [r.fioRazrab, ns_(r.status), r.predpriyatie].filter(Boolean).join(' · ');
+      html += `<div class="gs-item" data-gtype="gph" data-gid="${r.id}" onclick="gsOpenResult('gph','${r.id}')">
+        <div class="gs-item-main">
+          <div class="gs-item-title">${esc(r.navOR||'—')}</div>
+          <div class="gs-item-meta">${esc(meta)}</div>
+        </div>
+        ${bdg(r.status)}
+      </div>`;
+      _gsItems.push({type:'gph',id:r.id});
+    });
+  }
+  if(cntHits.length){
+    html += '<div class="gs-group-hd">📱 Контент-план</div>';
+    cntHits.forEach(r=>{
+      const meta = [r.type, r.responsible, r.status].filter(Boolean).join(' · ');
+      html += `<div class="gs-item" data-gtype="cnt" data-gid="${r.id}" onclick="gsOpenResult('cnt','${r.id}')">
+        <div class="gs-item-main">
+          <div class="gs-item-title">${esc(r.title||'—')}</div>
+          <div class="gs-item-meta">${esc(meta)}</div>
+        </div>
+      </div>`;
+      _gsItems.push({type:'cnt',id:r.id});
+    });
+  }
+
+  res.innerHTML = html;
+  _gsIdx = -1;
+}
+
+function gsNav(dir){
+  if(!_gsItems.length) return;
+  const items = document.querySelectorAll('#gsResults .gs-item');
+  if(_gsIdx >= 0 && _gsIdx < items.length) items[_gsIdx].classList.remove('gs-active');
+  _gsIdx = Math.max(0, Math.min(_gsItems.length-1, _gsIdx + dir));
+  if(_gsIdx >= 0 && _gsIdx < items.length){
+    items[_gsIdx].classList.add('gs-active');
+    items[_gsIdx].scrollIntoView({block:'nearest'});
+  }
+}
+
+function gsConfirm(){
+  if(_gsIdx < 0 || _gsIdx >= _gsItems.length) return;
+  const it = _gsItems[_gsIdx];
+  gsOpenResult(it.type, it.id);
+}
+
+function gsOpenResult(type, id){
+  closeGlobalSearch();
+  if(type==='shtat'){ go('shtat'); setTimeout(()=>openModal('shtat',id),50); }
+  else if(type==='gph'){ go('gph'); setTimeout(()=>openModal('gph',id),50); }
+  else if(type==='cnt'){ go('cnt'); setTimeout(()=>openContentModal(null,id),50); }
+}
+
+// ── ARCHIVE ────────────────────────────────────────────────
+function toggleArchiveView(){
+  S.showArchived=!S.showArchived;
+  const btn=document.getElementById('arcToggleBtn');
+  if(btn) btn.classList.toggle('active',S.showArchived);
+  render();
+}
+
+async function archiveRec(type,id){
+  const arr=type==='shtat'?S.shtat:S.gph;
+  const rec=arr.find(r=>r.id===id);
+  if(!rec)return;
+  rec.archived=true;
+  rec.updatedAt=new Date().toISOString();
+  localStorage.setItem('or_'+type,JSON.stringify(arr));
+  updBg();
+  render();
+  if(dbClient){
+    markOwnWrite(id);
+    try{await dbClient.from('or_'+type).upsert({id,data:rec,updated_at:rec.updatedAt});}
+    catch(e){console.error('archiveRec:',e);}
+  }
+  notify('Запись архивирована 🗄️');
+}
+
+async function unarchiveRec(type,id){
+  const arr=type==='shtat'?S.shtat:S.gph;
+  const rec=arr.find(r=>r.id===id);
+  if(!rec)return;
+  rec.archived=false;
+  rec.updatedAt=new Date().toISOString();
+  localStorage.setItem('or_'+type,JSON.stringify(arr));
+  updBg();
+  render();
+  if(dbClient){
+    markOwnWrite(id);
+    try{await dbClient.from('or_'+type).upsert({id,data:rec,updated_at:rec.updatedAt});}
+    catch(e){console.error('unarchiveRec:',e);}
+  }
+  notify('Запись возвращена из архива ✓');
+}
+
+async function autoArchive(){
+  const sixMonthsAgo=new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth()-6);
+  const threshold=sixMonthsAgo.toISOString();
+  const newlyArchived={shtat:[],gph:[]};
+  S.shtat.forEach(r=>{
+    if(!r.archived&&ns_(r.status)==='Завершено'){
+      const upd=r.updatedAt||r.createdAt||'';
+      if(upd&&upd<threshold){r.archived=true;newlyArchived.shtat.push(r);}
+    }
+  });
+  S.gph.forEach(r=>{
+    if(!r.archived&&ns_(r.status)==='Завершено'){
+      const upd=r.updatedAt||r.createdAt||'';
+      if(upd&&upd<threshold){r.archived=true;newlyArchived.gph.push(r);}
+    }
+  });
+  if(!newlyArchived.shtat.length&&!newlyArchived.gph.length)return;
+  localStorage.setItem('or_shtat',JSON.stringify(S.shtat));
+  localStorage.setItem('or_gph',JSON.stringify(S.gph));
+  if(dbClient){
+    try{
+      newlyArchived.shtat.forEach(r=>markOwnWrite(r.id));
+      newlyArchived.gph.forEach(r=>markOwnWrite(r.id));
+      const ops=[];
+      if(newlyArchived.shtat.length) ops.push(dbClient.from('or_shtat').upsert(newlyArchived.shtat.map(r=>({id:r.id,data:r,updated_at:r.updatedAt}))));
+      if(newlyArchived.gph.length) ops.push(dbClient.from('or_gph').upsert(newlyArchived.gph.map(r=>({id:r.id,data:r,updated_at:r.updatedAt}))));
+      if(ops.length) await Promise.all(ops);
+    }catch(e){console.error('autoArchive DB:',e);}
+  }
+  const total=newlyArchived.shtat.length+newlyArchived.gph.length;
+  notify(`🗄️ Авто-архив: ${total} завершённых записей (старше 6 мес.)`, 'info');
+  updBg();
+}
+
 async function init(){
   // Если credentials вшиты — прячем кнопку настройки (не нужна пользователям)
   const hardcoded=!!(SUPA_URL&&SUPA_KEY);
@@ -2658,6 +2928,7 @@ async function init(){
   loadRLocal();
   loadLocal();
   updBg();syncUserSel();renderShtat();
+  setTimeout(()=>autoArchive(),100);
 
   // 2. Пробуем подключиться к Supabase
   const hasDB=tryInitDB();
@@ -2673,6 +2944,7 @@ async function init(){
     try{
       await loadRefFromDB();
       await loadDataFromDB();
+      await autoArchive();
       markSaved();
       startRealtimeSync(); // WebSocket-подписка на изменения от других пользователей
     }catch(e){
@@ -2689,8 +2961,14 @@ async function init(){
   }
 
   document.addEventListener('keydown',e=>{
-    if(e.key==='Escape'){closeMo();closeAllDrops();hideDBSetup();hideClearConfirm();document.getElementById('spPop').classList.remove('open');closeEmpPanel();}
+    if(e.key==='Escape'){closeMo();closeAllDrops();hideDBSetup();hideClearConfirm();document.getElementById('spPop').classList.remove('open');closeEmpPanel();closeGlobalSearch();}
     if(e.key==='Enter'&&e.ctrlKey&&document.getElementById('mo').classList.contains('open')){e.preventDefault();saveMo();}
+    if((e.key==='k'||e.key==='K')&&(e.ctrlKey||e.metaKey)&&!document.getElementById('gsOverlay').classList.contains('open')){e.preventDefault();openGlobalSearch();}
+    if(document.getElementById('gsOverlay').classList.contains('open')){
+      if(e.key==='ArrowDown'){e.preventDefault();gsNav(1);}
+      else if(e.key==='ArrowUp'){e.preventDefault();gsNav(-1);}
+      else if(e.key==='Enter'&&!e.ctrlKey){e.preventDefault();gsConfirm();}
+    }
   });
 }
 window.addEventListener('DOMContentLoaded',init);
