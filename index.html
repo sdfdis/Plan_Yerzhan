@@ -1048,6 +1048,7 @@ async function loadRefFromDB(){
 async function dbSaveRef(){
   localStorage.setItem('or_ref',JSON.stringify(R));
   if(!dbClient) return;
+  markOwnWrite('__ref__'); // не реагировать на realtime-эхо изменений справочника
   const rows=Object.keys(R).map(k=>({key:k,values:R[k]}));
   const {error}=await dbClient.from('or_ref').upsert(rows);
   if(error){console.error('dbSaveRef:',error);notify('Ошибка сохранения справочника','error');}
@@ -1079,8 +1080,9 @@ async function dbDelete(table,id){
 }
 
 // ── SAVE MANAGEMENT ───────────────────────────────────────
+const AUTO_SAVE_SEC = 45;
 let autoSaveTimer = null;
-let countdownVal  = 45;
+let countdownVal  = AUTO_SAVE_SEC;
 let countdownTick = null;
 
 function markDirty(){
@@ -1093,7 +1095,7 @@ function markSaved(){
   S.lastSaved = new Date();
   S.justSaved = true;
   localStorage.setItem('or_last_saved', S.lastSaved.toISOString());
-  countdownVal = 45;
+  countdownVal = AUTO_SAVE_SEC;
   updateSaveUI();
   setTimeout(()=>{ S.justSaved = false; updateSaveUI(); }, 3000);
 }
@@ -1163,29 +1165,31 @@ async function saveAll(){
 }
 
 async function manualSave(){
+  const wasDirty = S.dirty;
   await saveAll();
   startAutoSave(); // сброс интервала чтобы счётчик не рассинхронизировался
-  notify('Данные сохранены ✓', 'success');
+  // Тост только если сохранение прошло успешно (dirty сбросился)
+  if(wasDirty && !S.dirty) notify('Данные сохранены ✓', 'success');
 }
 
 function startAutoSave(){
   if(autoSaveTimer) clearInterval(autoSaveTimer);
   if(countdownTick) clearInterval(countdownTick);
-  countdownVal = 45;
+  countdownVal = AUTO_SAVE_SEC;
 
   // каждую секунду обновляем счётчик
   countdownTick = setInterval(()=>{
     if(!dbClient) return;
     countdownVal--;
-    if(countdownVal < 0) countdownVal = 45;
+    if(countdownVal <= 0) countdownVal = AUTO_SAVE_SEC;
     if(!S.saving) updateSaveUI();
   }, 1000);
 
   // каждые 45 сек — полный sync
   autoSaveTimer = setInterval(async ()=>{
-    countdownVal = 45;
+    countdownVal = AUTO_SAVE_SEC;
     if(S.dirty) await saveAll();
-  }, 45000);
+  }, AUTO_SAVE_SEC * 1000);
 }
 
 // ── REALTIME SYNC ──────────────────────────────────────────
@@ -1199,6 +1203,7 @@ function markOwnWrite(id){
 
 let _rtChannel = null;
 let _rtNotifyTimer = null;
+let _rtRenderTimer = null; // дебаунс рендера при bulk-изменениях
 
 function startRealtimeSync(){
   if(!dbClient || _rtChannel) return;
@@ -1212,6 +1217,13 @@ function startRealtimeSync(){
     }, 600);
   }
 
+  // Дебаунс рендера: при bulk-импорте другим пользователем (50 записей)
+  // не делаем 50 render() — один через 150 мс после последнего события
+  function debouncedRender(){
+    if(_rtRenderTimer) clearTimeout(_rtRenderTimer);
+    _rtRenderTimer = setTimeout(()=>{ updBg(); render(); _rtRenderTimer = null; }, 150);
+  }
+
   function applyChange(table, payload){
     const {eventType, new: newRow, old: oldRow} = payload;
 
@@ -1220,6 +1232,8 @@ function startRealtimeSync(){
     if(changedId && _ownWrites.has(changedId)) return;
 
     if(table === 'or_ref'){
+      // Пропускаем свои изменения справочников
+      if(_ownWrites.has('__ref__')) return;
       // Справочники маленькие — грузим целиком
       loadRefFromDB().then(()=>{ renderCfg(); syncUserSel(); });
       notifyUpdate();
@@ -1250,8 +1264,7 @@ function startRealtimeSync(){
       if(idx >= 0){ arr.splice(idx,1); localStorage.setItem('or_'+key, JSON.stringify(arr)); }
     }
 
-    updBg();
-    render();
+    debouncedRender(); // вместо прямого updBg()+render()
     notifyUpdate();
   }
 
@@ -1393,9 +1406,10 @@ let S={shtat:[],gph:[],content:[],user:'',tab:'shtat',editId:null,moType:'shtat'
   chSrc:{stat:'shtat',pers:'shtat'},
   charts:{}, dirty:false, saving:false, lastSaved:null, justSaved:false, cntView:'kanban', groupBy:''};
 
-// Состояние сворачивания секций «Мои задачи» — сохраняется между ре-рендерами
+// Состояние сворачивания секций «Мои задачи» — сохраняется между ре-рендерами и перезагрузками
 // done=false: завершённые свёрнуты по умолчанию (накапливается больше всего)
-const _mySec={ov:true,active:true,cur:true,done:false};
+const _mySecDef={ov:true,active:true,cur:true,done:false};
+const _mySec=(()=>{try{const s=JSON.parse(localStorage.getItem('or_my_sec')||'null');return s&&typeof s==='object'?{..._mySecDef,...s}:{..._mySecDef};}catch(e){return{..._mySecDef};}})();
 
 // ── STORAGE ────────────────────────────────────────────────
 function loadLocal(){
@@ -1559,6 +1573,7 @@ async function setRecStatus(table,id,status){
   markDirty();
   render();
   if(dbClient){
+    markOwnWrite(id);
     try{await dbClient.from(table==='shtat'?'or_shtat':'or_gph').upsert({id,data:rec,updated_at:new Date().toISOString()});}
     catch(e){notify('Ошибка сохранения статуса','error');}
   }
@@ -1599,8 +1614,12 @@ function renderRcount(shown,total){
 function removeTag(key,val){S.f[key].delete(val);syncBtn(key);render();}
 
 // ── DATES ─────────────────────────────────────────────────
+// _today пересчитывается один раз в начале каждого render-цикла,
+// а не внутри dclass() при каждом вызове (до 300+ раз на рендер таблицы)
+let _today = null;
+function refreshToday(){_today=new Date();_today.setHours(0,0,0,0);}
 function fmt(d){if(!d)return '';const dt=new Date(d);if(isNaN(dt))return String(d).slice(0,10);return dt.toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit',year:'numeric'});}
-function dclass(ds,stat){if(!ds||ns_(stat)==='Завершено')return '';const d=new Date(ds);if(isNaN(d))return '';const now=new Date();now.setHours(0,0,0,0);const diff=(d-now)/86400000;return diff<0?'ov':diff<=7?'sn':'';}
+function dclass(ds,stat){if(!ds||ns_(stat)==='Завершено')return '';const d=new Date(ds);if(isNaN(d))return '';const now=_today||new Date();const diff=(d-now)/86400000;return diff<0?'ov':diff<=7?'sn':'';}
 function pdate(v){if(!v)return '';if(v instanceof Date){const d=v;return isNaN(d)?'':`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}if(typeof v==='number'){try{const d=new Date((v-25569)*86400*1000);if(!isNaN(d))return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}catch(e){}}if(typeof v==='string'){const m=/^(\d{2})\.(\d{2})\.(\d{4})/.exec(v);if(m)return `${m[3]}-${m[2]}-${m[1]}`;if(/^\d{4}-\d{2}-\d{2}/.test(v))return v.slice(0,10);}return '';}
 
 function bdg(stat){const s=ns_(stat)||stat;return `<span class="badge ${SBCLS[s]||'b-ns'}">${esc(s)}</span>`;}
@@ -1608,6 +1627,7 @@ function pvpBdg(v){const c=v==='Внеплан'?'background:#fef9c3;color:#854d0
 
 // ── RENDER ─────────────────────────────────────────────────
 function render(){
+  refreshToday(); // один new Date() на весь рендер-цикл
   if(S.tab==='shtat')renderShtat();
   else if(S.tab==='gph')renderGph();
   else if(S.tab==='dash')renderDash();
@@ -2046,6 +2066,7 @@ async function addComment(){
   renderMoComments(rec);
   markDirty();
   if(dbClient){
+    markOwnWrite(rec.id);
     try{await dbClient.from(S.moType==='shtat'?'or_shtat':'or_gph').upsert({id:rec.id,data:rec,updated_at:new Date().toISOString()});}
     catch(e){console.error('addComment:',e);}
   }
@@ -2060,6 +2081,7 @@ async function deleteComment(commentId){
   renderMoComments(rec);
   markDirty();
   if(dbClient){
+    markOwnWrite(rec.id);
     try{await dbClient.from(S.moType==='shtat'?'or_shtat':'or_gph').upsert({id:rec.id,data:rec,updated_at:new Date().toISOString()});}
     catch(e){console.error('deleteComment:',e);}
   }
@@ -2128,6 +2150,9 @@ function doImportExcel(inp){
         try{
           const sr=S.shtat.slice(-ns).map(r=>({id:r.id,data:r,updated_at:r.updatedAt}));
           const gr=S.gph.slice(-ng).map(r=>({id:r.id,data:r,updated_at:r.updatedAt}));
+          // Маркируем все импортируемые ID — чтобы realtime-эхо не вызвало повторный рендер
+          sr.forEach(r=>markOwnWrite(r.id));
+          gr.forEach(r=>markOwnWrite(r.id));
           if(sr.length) await dbClient.from('or_shtat').upsert(sr);
           if(gr.length) await dbClient.from('or_gph').upsert(gr);
         }catch(e){console.error('Excel DB save:',e);}
@@ -2179,6 +2204,9 @@ async function confirmClearAll(){
   }
 
   btn.textContent = '⏳ Удаляем…';
+  // Маркируем все ID перед удалением — realtime DELETE-события не должны
+  // вызывать лишние applyChange на том же браузере
+  [...S.shtat,...S.gph,...S.content].forEach(r=>markOwnWrite(r.id));
   S.shtat=[];S.gph=[];S.content=[];
   localStorage.removeItem('or_shtat');
   localStorage.removeItem('or_gph');
@@ -2318,23 +2346,6 @@ function openEmpPanel(name){
   document.getElementById('empName').textContent=name;
   document.getElementById('empSub').textContent=`${total} задач · Штат: ${shtat.length}, ГПХ: ${gphDev.length+gphCur.length}`;
 
-  function rowHtml(r,isgph){
-    const dk=isgph?r.dateEnd:r.dateEndPlan;
-    const dc=dclass(dk,r.status);
-    const typeStr=[r.vidRaboty?nv(r.vidRaboty):'',r.tipOR].filter(Boolean).join(' · ');
-    return `<div class="emp-row ${dc}">
-      <div class="emp-row-body">
-        <div class="emp-row-title">${esc(r.navOR||'—')}</div>
-        <div class="emp-row-meta">
-          ${bdg(r.status)}
-          ${typeStr?`<span>${esc(typeStr)}</span>`:''}
-          ${dk?`<span style="font-family:var(--mono);font-size:10.5px">${fmt(dk)}</span>`:''}
-          ${r.predpriyatie?`<span>${esc(r.predpriyatie)}</span>`:''}
-        </div>
-      </div>
-    </div>`;
-  }
-
   let body=`<div class="emp-kpi">
     <div class="emp-kpi-c"><div class="emp-kpi-l">Всего</div><div class="emp-kpi-v">${total}</div></div>
     <div class="emp-kpi-c blue"><div class="emp-kpi-l">В работе</div><div class="emp-kpi-v">${ip}</div></div>
@@ -2342,9 +2353,9 @@ function openEmpPanel(name){
     <div class="emp-kpi-c red"><div class="emp-kpi-l">Просрочено</div><div class="emp-kpi-v">${ov}</div></div>
   </div>`;
 
-  if(shtat.length) body+=`<div class="emp-sec"><div class="emp-sec-hd">Штат <span class="emp-sec-cnt">${shtat.length}</span></div>${shtat.map(r=>rowHtml(r,false)).join('')}</div>`;
-  if(gphDev.length) body+=`<div class="emp-sec"><div class="emp-sec-hd">ГПХ — разработчик <span class="emp-sec-cnt">${gphDev.length}</span></div>${gphDev.map(r=>rowHtml(r,true)).join('')}</div>`;
-  if(gphCur.length) body+=`<div class="emp-sec"><div class="emp-sec-hd">ГПХ — куратор <span class="emp-sec-cnt">${gphCur.length}</span></div>${gphCur.map(r=>rowHtml(r,true)).join('')}</div>`;
+  if(shtat.length) body+=`<div class="emp-sec"><div class="emp-sec-hd">Штат <span class="emp-sec-cnt">${shtat.length}</span></div>${shtat.map(r=>mkTaskCard(r,false)).join('')}</div>`;
+  if(gphDev.length) body+=`<div class="emp-sec"><div class="emp-sec-hd">ГПХ — разработчик <span class="emp-sec-cnt">${gphDev.length}</span></div>${gphDev.map(r=>mkTaskCard(r,true)).join('')}</div>`;
+  if(gphCur.length) body+=`<div class="emp-sec"><div class="emp-sec-hd">ГПХ — куратор <span class="emp-sec-cnt">${gphCur.length}</span></div>${gphCur.map(r=>mkTaskCard(r,true)).join('')}</div>`;
   if(!total&&!gphCur.length) body+=`<div class="emp-empty">Нет записей для этого сотрудника</div>`;
 
   document.getElementById('empBody').innerHTML=body;
@@ -2355,6 +2366,33 @@ function openEmpPanel(name){
 function closeEmpPanel(){
   document.getElementById('empOverlay').classList.remove('show');
   document.getElementById('empDrawer').classList.remove('open');
+}
+
+// ── SHARED TASK CARD ───────────────────────────────────────
+// Используется в openEmpPanel (панель сотрудника) и renderMyTasks (мои задачи)
+// opts.showEdit   — показывать кнопку ✏️ (по умолчанию false)
+// opts.showDeadlineIcon — показывать 📅 перед датой (по умолчанию false)
+function mkTaskCard(r, isgph, opts={}){
+  const dk=isgph?r.dateEnd:r.dateEndPlan;
+  const dc=dclass(dk,r.status);
+  const typeStr=[r.vidRaboty?nv(r.vidRaboty):'',r.tipOR].filter(Boolean).join(' · ');
+  const cc=(r.comments||[]).length;
+  const dateHtml=dk?`<span style="font-family:var(--mono);font-size:10.5px">${opts.showDeadlineIcon?'📅 ':''}${fmt(dk)}</span>`:'';
+  const editBtn=opts.showEdit
+    ?`<button class="ib" onclick="openModal('${isgph?'gph':'shtat'}','${r.id}')" title="Редактировать" style="flex-shrink:0">✏️</button>`:'';
+  return `<div class="emp-row ${dc}" style="margin-bottom:6px">
+    <div class="emp-row-body">
+      <div class="emp-row-title">${esc(r.navOR||'—')}</div>
+      <div class="emp-row-meta">
+        ${bdg(r.status)}
+        ${typeStr?`<span>${esc(typeStr)}</span>`:''}
+        ${r.predpriyatie?`<span>${esc(r.predpriyatie)}</span>`:''}
+        ${dateHtml}
+        ${cc?`<span>💬 ${cc}</span>`:''}
+      </div>
+    </div>
+    ${editBtn}
+  </div>`;
 }
 
 // ── MY TASKS ───────────────────────────────────────────────
@@ -2380,25 +2418,8 @@ function renderMyTasks(){
   const ov=all.filter(r=>{const d=new Date(r.dateEndPlan||r.dateEnd||'');return !isNaN(d)&&d<now&&ns_(r.status)!=='Завершено';}).length;
   const soon=all.filter(r=>{if(ns_(r.status)==='Завершено')return false;const d=new Date(r.dateEndPlan||r.dateEnd||'');if(isNaN(d))return false;const diff=(d-now)/86400000;return diff>=0&&diff<=7;}).length;
 
-  function taskRow(r,isgph){
-    const dk=isgph?r.dateEnd:r.dateEndPlan;
-    const dc=dclass(dk,r.status);
-    const typeStr=[r.vidRaboty?nv(r.vidRaboty):'',r.tipOR].filter(Boolean).join(' · ');
-    const cc=(r.comments||[]).length;
-    return `<div class="emp-row ${dc}" style="margin-bottom:6px">
-      <div class="emp-row-body">
-        <div class="emp-row-title">${esc(r.navOR||'—')}</div>
-        <div class="emp-row-meta">
-          ${bdg(r.status)}
-          ${typeStr?`<span>${esc(typeStr)}</span>`:''}
-          ${r.predpriyatie?`<span>${esc(r.predpriyatie)}</span>`:''}
-          ${dk?`<span style="font-family:var(--mono);font-size:10.5px">📅 ${fmt(dk)}</span>`:''}
-          ${cc?`<span>💬 ${cc}</span>`:''}
-        </div>
-      </div>
-      <button class="ib" onclick="openModal('${isgph?'gph':'shtat'}','${r.id}')" title="Редактировать" style="flex-shrink:0">✏️</button>
-    </div>`;
-  }
+  // taskRow → mkTaskCard с иконкой дедлайна и кнопкой редактирования
+  function taskRow(r,isgph){ return mkTaskCard(r,isgph,{showEdit:true,showDeadlineIcon:true}); }
 
   function sortByDeadline(arr){
     return [...arr].sort((a,b)=>{
@@ -2461,6 +2482,7 @@ function renderMyTasks(){
 
 function toggleSec(key){
   _mySec[key]=!_mySec[key];
+  try{localStorage.setItem('or_my_sec',JSON.stringify(_mySec));}catch(e){}
   const el=document.querySelector(`.my-sec[data-sec="${key}"]`);
   if(el){
     el.classList.toggle('collapsed',!_mySec[key]);
