@@ -637,6 +637,26 @@ tr.row-arc .tc-name,tr.row-arc .tc-m,tr.row-arc .tc-d,tr.row-arc .tc-cm{color:va
 .rpt-leg-dot{width:8px;height:8px;border-radius:2px;flex-shrink:0}
 .rpt-empty{color:#9ca3af;font-size:12px;text-align:center;padding:16px;font-style:italic}
 
+/* ── REPORT MOBILE ──────────────────────────────────────── */
+@media(max-width:768px){
+  .rpt-mo{padding:0;align-items:flex-end}
+  .rpt-box{border-radius:var(--r) var(--r) 0 0;max-height:90dvh;overflow-y:auto;width:100%;max-width:100%}
+  .rpt-scroll{padding:12px;align-items:flex-start}
+  /* Scale A4 page to fit viewport width */
+  .rpt-page{transform-origin:top left;transform:scale(calc((100vw - 24px) / 794));width:794px;margin-bottom:calc((794px * ((100vw - 24px) / 794)) - 794px)}
+  .rpt-kpi-row{grid-template-columns:repeat(2,1fr)}
+  .rpt-chart-row{grid-template-columns:1fr}
+  .rpt-chart-full{grid-column:1}
+  .rpt-toolbar{flex-wrap:wrap;gap:6px;padding:8px 12px}
+  .rpt-toolbar-t{width:100%;order:-1;font-size:12px}
+  .rpt-print-btn,.rpt-close-btn{flex:1;justify-content:center;padding:8px 10px;font-size:12px}
+}
+@media(max-width:480px){
+  .rpt-page{transform:scale(calc((100vw - 16px) / 794))}
+  .rpt-scroll{padding:8px}
+  .rpt-kpi-row{grid-template-columns:repeat(2,1fr);gap:6px}
+}
+
 /* ── PRINT ─────────────────────────────────────────────── */
 @media print{
   body>*{display:none!important}
@@ -1588,7 +1608,15 @@ function loadRLocal(){
 }
 const SBCLS={'Не начато':'b-ns','В работе':'b-ip','На согласовании':'b-ag','Доработка':'b-rw','Завершено':'b-dn','Приостановлено':'b-ps'};
 const VNORM={'Методологическое сопровождение':'Методическое сопровождение','Метологическое сопровождение':'Методическое сопровождение','Методолгическое сопровождение':'Методическое сопровождение'};
-const SNORM={'Завершена':'Завершено','в работе':'В работе','Не начата':'Не начато','Доработа':'Доработка','Завершена ':'Завершено'};
+const SNORM={
+  'Завершена':'Завершено','Завершена ':'Завершено',
+  'завершено':'Завершено','завершена':'Завершено',
+  'В Работе':'В работе','в работе':'В работе',
+  'Не начата':'Не начато','не начато':'Не начато','не начата':'Не начато',
+  'Доработа':'Доработка','доработка':'Доработка',
+  'На Согласовании':'На согласовании','на согласовании':'На согласовании',
+  'Приостановлена':'Приостановлено','приостановлено':'Приостановлено'
+};
 function nv(v){return (v&&VNORM[v.trim()])?VNORM[v.trim()]:(v||'').trim();}
 function ns_(s){const t=(s||'').trim();return SNORM[t]||t||'Не начато';}
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
@@ -3262,9 +3290,9 @@ function generateReport(){
       <div class="rpt-chart-row">
         <div class="rpt-chart-box">
           <div class="rpt-chart-t">Статусы</div>
-          <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:10px">
             ${donutHtml}
-            <div class="rpt-legend">${legendHtml}</div>
+            <div class="rpt-legend" style="justify-content:center">${legendHtml}</div>
           </div>
         </div>
         <div class="rpt-chart-box">
