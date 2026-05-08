@@ -639,22 +639,24 @@ tr.row-arc .tc-name,tr.row-arc .tc-m,tr.row-arc .tc-d,tr.row-arc .tc-cm{color:va
 
 /* ── REPORT MOBILE ──────────────────────────────────────── */
 @media(max-width:768px){
+  /* Settings modal — bottom sheet */
   .rpt-mo{padding:0;align-items:flex-end}
   .rpt-box{border-radius:var(--r) var(--r) 0 0;max-height:90dvh;overflow-y:auto;width:100%;max-width:100%}
-  .rpt-scroll{padding:12px;align-items:flex-start}
-  /* Scale A4 page to fit viewport width */
-  .rpt-page{transform-origin:top left;transform:scale(calc((100vw - 24px) / 794));width:794px;margin-bottom:calc((794px * ((100vw - 24px) / 794)) - 794px)}
-  .rpt-kpi-row{grid-template-columns:repeat(2,1fr)}
-  .rpt-chart-row{grid-template-columns:1fr}
-  .rpt-chart-full{grid-column:1}
+  /* Toolbar */
   .rpt-toolbar{flex-wrap:wrap;gap:6px;padding:8px 12px}
   .rpt-toolbar-t{width:100%;order:-1;font-size:12px}
   .rpt-print-btn,.rpt-close-btn{flex:1;justify-content:center;padding:8px 10px;font-size:12px}
+  /* Report scroll: horizontal scroll to view A4 at native size, or pinch-zoom */
+  .rpt-scroll{padding:8px;justify-content:flex-start;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .rpt-page{min-width:600px}
+  /* KPI and charts adapt inside the page */
+  .rpt-kpi-row{grid-template-columns:repeat(2,1fr);gap:8px}
+  .rpt-chart-row{grid-template-columns:1fr}
+  .rpt-chart-full{grid-column:1}
 }
 @media(max-width:480px){
-  .rpt-page{transform:scale(calc((100vw - 16px) / 794))}
-  .rpt-scroll{padding:8px}
-  .rpt-kpi-row{grid-template-columns:repeat(2,1fr);gap:6px}
+  .rpt-scroll{padding:4px}
+  .rpt-kpi-row{gap:6px}
 }
 
 /* ── PRINT ─────────────────────────────────────────────── */
@@ -664,6 +666,9 @@ tr.row-arc .tc-name,tr.row-arc .tc-m,tr.row-arc .tc-d,tr.row-arc .tc-cm{color:va
   .rpt-toolbar{display:none!important}
   .rpt-scroll{overflow:visible!important;padding:0!important;display:block!important}
   .rpt-page{box-shadow:none!important;width:100%!important;padding:20px 28px!important;min-height:unset!important}
+  /* Employee workload starts on a fresh A4 sheet */
+  .rpt-emp-sec{break-before:page;page-break-before:always;padding-top:10px}
+  .rpt-chart-row{grid-template-columns:1fr 1fr}
   @page{margin:10mm;size:A4 portrait}
 }
 </style>
@@ -3184,16 +3189,18 @@ function svgDonut(segments, size=160){
   </svg>`;
 }
 
-function svgHBars(items, width=340){
-  // items: [{label, value, total, color}]
+function svgHBars(items, width=340, padL=110){
+  // items: [{label, value, color}]
   if(!items.length) return `<div class="rpt-empty">Нет данных</div>`;
   const maxVal=Math.max(...items.map(i=>i.value),1);
-  const barH=18, gap=8, padL=110, padR=36, h=items.length*(barH+gap)-gap;
+  const barH=18, gap=8, padR=36, h=items.length*(barH+gap)-gap;
+  const maxLbl=Math.floor((padL-10)/6.5); // chars that fit in label column
   let rects='';
   items.forEach((it,idx)=>{
     const y=idx*(barH+gap);
     const bw=Math.max(2,((it.value/maxVal)*(width-padL-padR)));
-    rects+=`<text x="${padL-6}" y="${y+barH/2+4}" text-anchor="end" font-size="10" fill="#374151" font-family="IBM Plex Sans,sans-serif">${esc(it.label.length>14?it.label.slice(0,13)+'…':it.label)}</text>
+    const lbl=it.label.length>maxLbl?it.label.slice(0,maxLbl-1)+'…':it.label;
+    rects+=`<text x="${padL-6}" y="${y+barH/2+4}" text-anchor="end" font-size="10" fill="#374151" font-family="IBM Plex Sans,sans-serif">${esc(lbl)}</text>
       <rect x="${padL}" y="${y}" width="${bw}" height="${barH}" rx="3" fill="${it.color||'#3b82f6'}"/>
       <text x="${padL+bw+4}" y="${y+barH/2+4}" font-size="10" fill="#374151" font-family="IBM Plex Sans,sans-serif">${it.value}</text>`;
   });
@@ -3248,10 +3255,10 @@ function generateReport(){
   data.forEach(r=>{const s=ns_(r.status);sc[s]=(sc[s]||0)+1;});
   const statSegs=Object.entries(sc).map(([l,v])=>({label:l,value:v,color:STAT_COLORS[l]||'#94a3b8'})).filter(x=>x.value>0);
 
-  // Employee workload
+  // Employee workload — all employees, no cap
   const ec={};
   data.forEach(r=>{const n=(r.fio||r.fioRazrab||'').trim();if(n){ec[n]=(ec[n]||0)+1;}});
-  const empBars=Object.entries(ec).sort((a,b)=>b[1]-a[1]).slice(0,12).map(([l,v])=>({label:l,value:v,color:'#3b82f6'}));
+  const empBars=Object.entries(ec).sort((a,b)=>b[1]-a[1]).map(([l,v])=>({label:l,value:v,color:'#3b82f6'}));
 
   // Work types
   const vc={};
@@ -3281,8 +3288,10 @@ function generateReport(){
   // Build charts HTML
   const donutHtml=svgDonut(statSegs,160);
   const legendHtml=statSegs.map(s=>`<div class="rpt-leg-it"><div class="rpt-leg-dot" style="background:${s.color}"></div>${esc(s.label)}: <b>${s.value}</b></div>`).join('');
-  const empBarsHtml=svgHBars(empBars,340);
-  const vidBarsHtml=svgHBars(vidBars,340);
+  // Employee bars: full-width (660px), wider label column (150px) for long names
+  const empBarsHtml=svgHBars(empBars,660,150);
+  // Work-type bars: half-width column (~305px)
+  const vidBarsHtml=svgHBars(vidBars,305);
 
   const chartsHtml=showCharts?`
     <div class="rpt-sec">
@@ -3296,13 +3305,15 @@ function generateReport(){
           </div>
         </div>
         <div class="rpt-chart-box">
-          <div class="rpt-chart-t">Нагрузка по сотрудникам</div>
-          ${empBarsHtml}
+          <div class="rpt-chart-t">Виды работ</div>
+          ${vidBarsHtml}
         </div>
       </div>
-      <div class="rpt-chart-box rpt-chart-full" style="margin-top:10px">
-        <div class="rpt-chart-t">Виды работ</div>
-        ${vidBarsHtml}
+    </div>
+    <div class="rpt-sec rpt-emp-sec">
+      <div class="rpt-sec-t">Нагрузка по сотрудникам</div>
+      <div class="rpt-chart-box">
+        ${empBarsHtml}
       </div>
     </div>`:'';
 
