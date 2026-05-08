@@ -471,17 +471,25 @@ textarea.fc{resize:vertical;min-height:64px}
 
 @media(max-width:768px){
   :root{--sbw:248px}
-  body{overflow:hidden}
+  body{overflow:hidden;height:100dvh}
+  /* Contain all scrolling inside .content — prevent iOS momentum from escaping to window */
+  .content{-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 
   /* Safe-area: sidebar top padding under dynamic island / notch */
   .sb{position:fixed;left:calc(-1 * var(--sbw) - 10px);top:0;height:100dvh;z-index:99;transition:left .25s ease;box-shadow:none;padding-top:env(safe-area-inset-top)}
   .sb.open{left:0;box-shadow:4px 0 24px rgba(0,0,0,.3)}
 
   .ham-btn{display:flex}
-  .main{width:100vw}
+  .main{width:100vw;padding-top:calc(50px + env(safe-area-inset-top))}
 
-  /* Topbar: height + top padding for safe area (notch / dynamic island) */
-  .topbar{padding-left:12px;padding-right:12px;padding-top:env(safe-area-inset-top);gap:8px;height:calc(50px + env(safe-area-inset-top))}
+  /* Topbar: fixed to viewport — prevents iOS momentum scroll from pushing it off-screen */
+  .topbar{
+    position:fixed;top:0;left:0;right:0;z-index:95;
+    padding-left:12px;padding-right:12px;
+    padding-top:env(safe-area-inset-top);
+    gap:8px;height:calc(50px + env(safe-area-inset-top));
+    background:var(--white);
+  }
   .topbar-title{font-size:14px}
   .srch{width:130px;font-size:12px}
 
