@@ -1972,9 +1972,24 @@ function openStatusPicker(e,table,id){
   const statuses=R.stat||['Не начато','В работе','На проверке','Завершено','Приостановлено'];
   pop.innerHTML=statuses.map(s=>`<div class="sp-item" data-table="${table}" data-id="${id}" data-status="${esc(s)}" onclick="setRecStatus(this.dataset.table,this.dataset.id,this.dataset.status)">${bdg(s)}</div>`).join('');
   const rect=e.currentTarget.getBoundingClientRect();
-  pop.style.top=(rect.bottom+4)+'px';
-  pop.style.left=rect.left+'px';
+  // Показываем, затем измеряем реальные размеры и не даём уйти за экран
+  pop.style.visibility='hidden';
   pop.classList.add('open');
+  const popH=pop.offsetHeight, popW=pop.offsetWidth;
+  const gap=4, margin=8, vh=window.innerHeight, vw=window.innerWidth;
+  // По вертикали: вниз, если влезает; иначе вверх; иначе прижать к низу экрана
+  let top=rect.bottom+gap;
+  if(top+popH>vh-margin){
+    const above=rect.top-gap-popH;
+    top = above>=margin ? above : Math.max(margin, vh-popH-margin);
+  }
+  // По горизонтали: не вылезать за правый/левый край
+  let left=rect.left;
+  if(left+popW>vw-margin) left=vw-popW-margin;
+  if(left<margin) left=margin;
+  pop.style.top=top+'px';
+  pop.style.left=left+'px';
+  pop.style.visibility='';
 }
 
 async function setRecStatus(table,id,status){
