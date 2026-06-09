@@ -1867,7 +1867,7 @@ function getFioItems(){
   const fromData=S.shtat.map(r=>(r.fio||'').trim()).filter(Boolean);
   return [...new Set([...R.emp,...fromData])].sort();
 }
-function getItems(key){return key==='fio'?getFioItems():key==='stat'?R.stat:key==='vid'?R.vid:R.tip;}
+function getItems(key){return key==='fio'?getFioItems():key==='stat'?[...(R.stat||[]),'Просрочена']:key==='vid'?R.vid:R.tip;}
 
 function buildList(key,query){
   const fset=S.f[key];
@@ -2021,7 +2021,11 @@ function filtered(data,isgph){
   const dk=isgph?'dateEnd':'dateEndPlan';
   return base.filter(r=>{
     if(S.f.fio.size&&!S.f.fio.has((r[nk]||'').trim()))return false;
-    if(S.f.stat.size&&!S.f.stat.has(ns_(r.status)))return false;
+    if(S.f.stat.size){
+      const realMatch=S.f.stat.has(ns_(r.status));
+      const ovMatch=S.f.stat.has('Просрочена')&&isOverdue(r);
+      if(!realMatch&&!ovMatch)return false;
+    }
     if(S.f.vid.size&&!S.f.vid.has(nv(r.vidRaboty)))return false;
     if(S.f.tip.size&&!S.f.tip.has(r.tipOR||''))return false;
     if(S.f.q){
@@ -2056,6 +2060,27 @@ let _today = null;
 function refreshToday(){_today=new Date();_today.setHours(0,0,0,0);}
 function fmt(d){if(!d)return '';const dt=new Date(d);if(isNaN(dt))return String(d).slice(0,10);return dt.toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit',year:'numeric'});}
 function dclass(ds,stat){if(!ds||ns_(stat)==='Завершено')return '';const d=new Date(ds);if(isNaN(d))return '';const now=_today||new Date();const diff=(d-now)/86400000;return diff<0?'ov':diff<=7?'sn':'';}
+
+// ── DEADLINE (С-1 единый хелпер + Н-6 правило внеплана) ───
+// Эффективная дата дедлайна записи:
+//  • Штат План — Ок.план (dateEndPlan), как вписано вручную;
+//  • ГПХ — единая дата окончания (dateEnd);
+//  • Штат Внеплан (план-окончания нет): регламент «Разработка + Курс» = факт.начало + 2 мес;
+//    иначе дедлайна нет.
+function recDeadline(rec){
+  if(rec.dateEndPlan) return rec.dateEndPlan;
+  if(rec.dateEnd) return rec.dateEnd;
+  const vid=nv(rec.vidRaboty||'').toLowerCase().trim();
+  const tip=(rec.tipOR||'').toLowerCase().trim();
+  if(vid==='разработка' && tip==='курс' && rec.dateStartFact){
+    const d=new Date(rec.dateStartFact);
+    if(!isNaN(d)){ d.setMonth(d.getMonth()+2); return d.toISOString().slice(0,10); }
+  }
+  return '';
+}
+// → { dl: 'YYYY-MM-DD'|'', cls: '' | 'sn' | 'ov' }
+function deadlineState(rec){ const dl=recDeadline(rec); return {dl,cls:dclass(dl,rec.status)}; }
+function isOverdue(rec){ return deadlineState(rec).cls==='ov'; }
 function pdate(v){if(!v)return '';if(v instanceof Date){const d=v;return isNaN(d)?'':`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}if(typeof v==='number'){try{const d=new Date((v-25569)*86400*1000);if(!isNaN(d))return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}catch(e){}}if(typeof v==='string'){const m=/^(\d{2})\.(\d{2})\.(\d{4})/.exec(v);if(m)return `${m[3]}-${m[2]}-${m[1]}`;if(/^\d{4}-\d{2}-\d{2}/.test(v))return v.slice(0,10);}return '';}
 
 function bdg(stat){const s=ns_(stat)||stat;return `<span class="badge ${SBCLS[s]||'b-ns'}">${esc(s)}</span>`;}
@@ -2088,9 +2113,13 @@ function renderShtat(){
   const tb=document.getElementById('shtatBody');
   if(!data.length){tb.innerHTML=`<tr><td colspan="14">${emptyHtml()}</td></tr>`;return;}
   function shtatRow(r,i){
-    const dc=dclass(r.dateEndPlan,r.status);
-    const ec='tc-d'+(dc?' '+dc:'');
-    const w=dc==='ov'?' ⚠️':dc==='sn'?' 🔔':'';
+    const {dl,cls:dc}=deadlineState(r);
+    const onPlan=!!r.dateEndPlan;              // куда вешать индикатор
+    const dcls=dc?' '+dc:'';
+    const epCls='tc-d'+(onPlan?dcls:'');        // Ок.план
+    const sfCls='tc-d'+(!onPlan?dcls:'');       // Нач.факт (для внеплана)
+    const icon=dc==='ov'?'⚠️':dc==='sn'?'🔔':'';
+    const w=icon?` <span title="Дедлайн: ${fmt(dl)}">${icon}</span>`:'';
     const cc=(r.comments||[]).length;
     return `<tr class="${S.showArchived?'row-arc':dc==='ov'?'row-ov':dc==='sn'?'row-sn':''}">
       <td class="tc-n">${i+1}</td>
@@ -2101,8 +2130,8 @@ function renderShtat(){
       <td class="tc-m">${esc(r.predpriyatie||'—')}</td>
       <td>${pvpBdg(r.planVnePlan)}</td>
       <td class="tc-d">${fmt(r.dateStartPlan)}</td>
-      <td class="${ec}">${fmt(r.dateEndPlan)}${w}</td>
-      <td class="tc-d">${fmt(r.dateStartFact)}</td>
+      <td class="${epCls}">${fmt(r.dateEndPlan)}${onPlan?w:''}</td>
+      <td class="${sfCls}">${fmt(r.dateStartFact)}${!onPlan?w:''}</td>
       <td class="tc-d">${fmt(r.dateEndFact)}</td>
       <td><span class="badge-btn" onclick="openStatusPicker(event,'shtat','${r.id}')" title="Сменить статус">${bdg(r.status)}</span></td>
       <td class="tc-cm" title="${esc(r.kommentarii||'')}">${esc(r.kommentarii||'')}${cc?`<span style="color:var(--t3);font-size:10px;margin-left:4px">💬${cc}</span>`:''}</td>
@@ -2179,7 +2208,7 @@ function renderKPI(){
   const ip=all.filter(r=>ns_(r.status)==='В работе').length;
   const ns=all.filter(r=>ns_(r.status)==='Не начато').length;
   const now=new Date();now.setHours(0,0,0,0);
-  const ov=all.filter(r=>{const d=new Date(r.dateEndPlan||r.dateEnd||'');return !isNaN(d)&&d<now&&ns_(r.status)!=='Завершено';}).length;
+  const ov=all.filter(r=>{const d=new Date(recDeadline(r));return !isNaN(d)&&d<now&&ns_(r.status)!=='Завершено';}).length;
   document.getElementById('kpiG').innerHTML=`
     <div class="kpi-c"><div class="kpi-l">Штат</div><div class="kpi-v">${S.shtat.length}</div><div class="kpi-s">внутренние</div></div>
     <div class="kpi-c"><div class="kpi-l">ГПХ</div><div class="kpi-v">${S.gph.length}</div><div class="kpi-s">подрядчики</div></div>
@@ -2278,11 +2307,11 @@ function renderCharts(){
 function renderDL(){
   const now=new Date();now.setHours(0,0,0,0);
   const d30=new Date(now);d30.setDate(d30.getDate()+30);
-  const items=[...S.shtat.filter(r=>{if(r.archived)return false;const d=new Date(r.dateEndPlan||'');return !isNaN(d)&&d<=d30&&ns_(r.status)!=='Завершено';}), ...S.gph.filter(r=>{if(r.archived)return false;const d=new Date(r.dateEnd||'');return !isNaN(d)&&d<=d30&&ns_(r.status)!=='Завершено';})].sort((a,b)=>new Date(a.dateEndPlan||a.dateEnd)-new Date(b.dateEndPlan||b.dateEnd)).slice(0,10);
+  const items=[...S.shtat.filter(r=>{if(r.archived)return false;const d=new Date(recDeadline(r));return !isNaN(d)&&d<=d30&&ns_(r.status)!=='Завершено';}), ...S.gph.filter(r=>{if(r.archived)return false;const d=new Date(recDeadline(r));return !isNaN(d)&&d<=d30&&ns_(r.status)!=='Завершено';})].sort((a,b)=>new Date(recDeadline(a)||'9999-12-31')-new Date(recDeadline(b)||'9999-12-31')).slice(0,10);
   const el=document.getElementById('dlList');
   if(!items.length){el.innerHTML='<div style="color:var(--t3);font-size:13px;padding:20px;text-align:center">Нет предстоящих дедлайнов 🎉</div>';return;}
   el.innerHTML=items.map(r=>{
-    const d=new Date(r.dateEndPlan||r.dateEnd);const diff=Math.round((d-now)/86400000);
+    const d=new Date(recDeadline(r));const diff=Math.round((d-now)/86400000);
     const cls=diff<0?'ov':diff<=7?'sn':'up';
     const lbl=diff<0?`${Math.abs(diff)}д назад`:diff===0?'Сегодня':`${diff}д`;
     const lclr=diff<0?'#dc2626':diff<=7?'#d97706':'#2563eb';
@@ -2817,7 +2846,7 @@ function openEmpPanel(name){
   const ip=all.filter(r=>ns_(r.status)==='В работе').length;
   const done=all.filter(r=>ns_(r.status)==='Завершено').length;
   const now=new Date();now.setHours(0,0,0,0);
-  const ov=all.filter(r=>{const d=new Date(r.dateEndPlan||r.dateEnd||'');return !isNaN(d)&&d<now&&ns_(r.status)!=='Завершено';}).length;
+  const ov=all.filter(r=>{const d=new Date(recDeadline(r));return !isNaN(d)&&d<now&&ns_(r.status)!=='Завершено';}).length;
 
   const initials=name.split(/\s+/).map(w=>w[0]||'').slice(0,2).join('').toUpperCase()||'?';
   document.getElementById('empAvatar').textContent=initials;
@@ -2893,22 +2922,22 @@ function renderMyTasks(){
   const total=all.length;
   const ip=all.filter(r=>ns_(r.status)==='В работе').length;
   const done=all.filter(r=>ns_(r.status)==='Завершено').length;
-  const ov=all.filter(r=>{const d=new Date(r.dateEndPlan||r.dateEnd||'');return !isNaN(d)&&d<now&&ns_(r.status)!=='Завершено';}).length;
-  const soon=all.filter(r=>{if(ns_(r.status)==='Завершено')return false;const d=new Date(r.dateEndPlan||r.dateEnd||'');if(isNaN(d))return false;const diff=(d-now)/86400000;return diff>=0&&diff<=7;}).length;
+  const ov=all.filter(r=>{const d=new Date(recDeadline(r));return !isNaN(d)&&d<now&&ns_(r.status)!=='Завершено';}).length;
+  const soon=all.filter(r=>{if(ns_(r.status)==='Завершено')return false;const d=new Date(recDeadline(r));if(isNaN(d))return false;const diff=(d-now)/86400000;return diff>=0&&diff<=7;}).length;
 
   // taskRow → mkTaskCard с иконкой дедлайна и кнопкой редактирования
   function taskRow(r,isgph){ return mkTaskCard(r,isgph,{showEdit:true,showDeadlineIcon:true}); }
 
   function sortByDeadline(arr){
     return [...arr].sort((a,b)=>{
-      const da=new Date(a.dateEndPlan||a.dateEnd||'9999-12-31');
-      const db=new Date(b.dateEndPlan||b.dateEnd||'9999-12-31');
+      const da=new Date(recDeadline(a)||'9999-12-31');
+      const db=new Date(recDeadline(b)||'9999-12-31');
       return da-db;
     });
   }
 
-  const ovRows=all.filter(r=>{const d=new Date(r.dateEndPlan||r.dateEnd||'');return !isNaN(d)&&d<now&&ns_(r.status)!=='Завершено';});
-  const activeRows=all.filter(r=>{if(ns_(r.status)==='Завершено')return false;const d=new Date(r.dateEndPlan||r.dateEnd||'');return isNaN(d)||d>=now;});
+  const ovRows=all.filter(r=>{const d=new Date(recDeadline(r));return !isNaN(d)&&d<now&&ns_(r.status)!=='Завершено';});
+  const activeRows=all.filter(r=>{if(ns_(r.status)==='Завершено')return false;const d=new Date(recDeadline(r));return isNaN(d)||d>=now;});
   const doneRows=all.filter(r=>ns_(r.status)==='Завершено');
 
   function secHtml(icon,title,rows,color,key){
@@ -3459,7 +3488,7 @@ function generateReport(){
   // Period filter — записи без даты включаются всегда (дата не задана → период неизвестен)
   if(dateFrom||dateTo){
     data=data.filter(r=>{
-      const d=(r.dateEndPlan||r.dateEnd||'').slice(0,10);
+      const d=(recDeadline(r)||'').slice(0,10);
       if(!d) return true; // нет даты → показываем в любом периоде
       if(dateFrom&&d<dateFrom) return false;
       if(dateTo&&d>dateTo) return false;
@@ -3474,7 +3503,7 @@ function generateReport(){
   const total=data.length;
   const done=data.filter(r=>ns_(r.status)==='Завершено').length;
   const ip=data.filter(r=>ns_(r.status)==='В работе').length;
-  const ov=data.filter(r=>{const d=new Date(r.dateEndPlan||r.dateEnd||'');return !isNaN(d)&&d<now&&ns_(r.status)!=='Завершено';}).length;
+  const ov=data.filter(r=>{const d=new Date(recDeadline(r));return !isNaN(d)&&d<now&&ns_(r.status)!=='Завершено';}).length;
 
   // Status counts
   const STAT_COLORS={'Не начато':'#94a3b8','В работе':'#3b82f6','На согласовании':'#f59e0b','Доработка':'#f97316','Завершено':'#22c55e','Приостановлено':'#ef4444'};
