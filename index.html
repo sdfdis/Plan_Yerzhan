@@ -1283,29 +1283,46 @@ async function dbSaveRef(){
   if(error){console.error('dbSaveRef:',error);notify('Ошибка сохранения справочника','error');}
 }
 
+// ── VERSIONING (К-2) ──────────────────────────────────────
+// Единый штамп версии: rec.updatedAt, data.updatedAt и колонка updated_at
+// всегда синхронны. Все мутации записи перед записью в БД проходят через stampRec.
+function stampRec(rec){ rec.updatedAt = new Date().toISOString(); return rec; }
+// Лёгкая проверка версии записи в БД для детекции конфликта при сохранении формы.
+// Возвращает строку updated_at или null. При ошибке/офлайне — null (fail-open: не блокируем сохранение).
+async function fetchRemoteVer(table,id){
+  if(!dbClient) return null;
+  try{
+    const {data,error}=await dbClient.from('or_'+table).select('updated_at').eq('id',id).maybeSingle();
+    if(error){ console.warn('fetchRemoteVer:',error); return null; }
+    return data ? data.updated_at : null;
+  }catch(e){ console.warn('fetchRemoteVer:',e); return null; }
+}
+
 async function dbUpsert(table,rec){
   const arr=S[table];
   const i=arr.findIndex(r=>r.id===rec.id);
   if(i!==-1) arr[i]=rec; else arr.push(rec);
   updBg();
+  recDirty(table,rec.id);
   markDirty();
   localStorage.setItem('or_'+table,JSON.stringify(arr));
   if(!dbClient) return;
   markOwnWrite(rec.id); // не реагировать на echo своей же записи
   const {error}=await dbClient.from('or_'+table).upsert({id:rec.id,data:rec,updated_at:rec.updatedAt});
   if(error){setDbStatus('err');throw error;}
-  markSaved();
+  markRecSaved(table,rec.id);
 }
 
 async function dbDelete(table,id){
   S[table]=S[table].filter(r=>r.id!==id);
   updBg();
+  recClean(table,id); // удалённая запись больше не подлежит пушу
   markDirty();
   localStorage.setItem('or_'+table,JSON.stringify(S[table]));
   if(!dbClient) return;
   const {error}=await dbClient.from('or_'+table).delete().eq('id',id);
   if(error){setDbStatus('err');console.error('dbDelete:',error);return;}
-  markSaved();
+  markRecSaved(table,id);
 }
 
 // ── SAVE MANAGEMENT ───────────────────────────────────────
@@ -1319,11 +1336,33 @@ function markDirty(){
   updateSaveUI();
 }
 
+// ── DIRTY-SET (К-3) ───────────────────────────────────────
+// Отслеживаем, какие именно записи изменены локально и не подтверждены в БД.
+// Автосейв пушит только их, а не весь массив (иначе устаревшая локальная копия
+// затирает чужую свежую запись).
+function _dset(t){ if(!S.dirtyIds) S.dirtyIds={shtat:new Set(),gph:new Set(),content:new Set()}; return S.dirtyIds[t]; }
+function recDirty(t,id){ const s=_dset(t); if(s) s.add(id); }
+function recClean(t,id){ const s=_dset(t); if(s) s.delete(id); }
+function anyRecDirty(){ return !!(S.dirtyIds && ['shtat','gph','content'].some(t=>S.dirtyIds[t]&&S.dirtyIds[t].size)); }
+
+// Подтверждение одной записи (после немедленного upsert/delete).
+// Снимает только её id; глобальный «чисто» ставим лишь когда не осталось грязных.
+function markRecSaved(t,id){
+  recClean(t,id);
+  S.lastSaved = new Date();
+  S.justSaved = true;
+  localStorage.setItem('or_last_saved', S.lastSaved.toISOString());
+  if(!anyRecDirty()){ S.dirty = false; countdownVal = AUTO_SAVE_SEC; }
+  updateSaveUI();
+  setTimeout(()=>{ S.justSaved = false; updateSaveUI(); }, 3000);
+}
+
 function markSaved(){
   S.dirty     = false;
   S.lastSaved = new Date();
   S.justSaved = true;
   localStorage.setItem('or_last_saved', S.lastSaved.toISOString());
+  if(S.dirtyIds){ S.dirtyIds.shtat.clear(); S.dirtyIds.gph.clear(); S.dirtyIds.content.clear(); }
   countdownVal = AUTO_SAVE_SEC;
   updateSaveUI();
   setTimeout(()=>{ S.justSaved = false; updateSaveUI(); }, 3000);
@@ -1369,18 +1408,31 @@ async function saveAll(){
     localStorage.setItem('or_gph',     JSON.stringify(S.gph));
     localStorage.setItem('or_content', JSON.stringify(S.content));
     if(dbClient){
-      // Маркируем все ID как собственные записи — игнорировать realtime-эхо
-      [...S.shtat,...S.gph,...S.content].forEach(r=>markOwnWrite(r.id));
-      const sr = S.shtat.map(r=>({id:r.id, data:r, updated_at:r.updatedAt||new Date().toISOString()}));
-      const gr = S.gph.map(r=>({id:r.id, data:r, updated_at:r.updatedAt||new Date().toISOString()}));
-      const cr = S.content.map(r=>({id:r.id, data:r, updated_at:r.updatedAt||new Date().toISOString()}));
+      // К-3: пушим ТОЛЬКО локально изменённые записи (dirty-set), а не весь массив —
+      // иначе устаревшая локальная копия затирает чужую свежую запись в БД.
+      const pushed = {shtat:[], gph:[], content:[]};
+      const build = (table)=>{
+        const ids = [...(_dset(table)||[])];
+        const rows = [];
+        ids.forEach(id=>{
+          const r = S[table].find(x=>x.id===id);
+          if(r){ rows.push({id:r.id, data:r, updated_at:r.updatedAt||new Date().toISOString()}); pushed[table].push(id); }
+          else { recClean(table,id); } // запись удалена локально — снять из набора
+        });
+        return rows;
+      };
+      const sr = build('shtat'), gr = build('gph'), cr = build('content');
       const ops = [];
-      if(sr.length) ops.push(dbClient.from('or_shtat').upsert(sr));
-      if(gr.length) ops.push(dbClient.from('or_gph').upsert(gr));
-      if(cr.length) ops.push(dbClient.from('or_content').upsert(cr));
-      const results = await Promise.all(ops);
-      const err = results.find(r=>r.error);
-      if(err) throw err.error;
+      if(sr.length){ sr.forEach(r=>markOwnWrite(r.id)); ops.push(dbClient.from('or_shtat').upsert(sr)); }
+      if(gr.length){ gr.forEach(r=>markOwnWrite(r.id)); ops.push(dbClient.from('or_gph').upsert(gr)); }
+      if(cr.length){ cr.forEach(r=>markOwnWrite(r.id)); ops.push(dbClient.from('or_content').upsert(cr)); }
+      if(ops.length){
+        const results = await Promise.all(ops);
+        const err = results.find(r=>r.error);
+        if(err) throw err.error; // при ошибке dirty-set НЕ чистим — записи уйдут в следующий проход
+      }
+      // Успех: снимаем подтверждённые id (markSaved ниже очистит остаток, если он пуст)
+      ['shtat','gph','content'].forEach(t=>pushed[t].forEach(id=>recClean(t,id)));
     }
     markSaved();
   } catch(e){
@@ -1820,11 +1872,18 @@ async function setRecStatus(table,id,status){
   const rec=arr.find(r=>r.id===id);
   if(!rec)return;
   rec.status=status;
+  stampRec(rec);
+  if(S.editId===id) S.moOpenVer=rec.updatedAt; // своя правка той же открытой записи
+  recDirty(table,id);
   markDirty();
   render();
   if(dbClient){
     markOwnWrite(id);
-    try{await dbClient.from(table==='shtat'?'or_shtat':'or_gph').upsert({id,data:rec,updated_at:new Date().toISOString()});}
+    try{
+      const {error}=await dbClient.from(table==='shtat'?'or_shtat':'or_gph').upsert({id,data:rec,updated_at:rec.updatedAt});
+      if(error) throw error;
+      markRecSaved(table,id);
+    }
     catch(e){notify('Ошибка сохранения статуса','error');}
   }
 }
@@ -2192,6 +2251,7 @@ function syncUserSel(){
 function openModal(type,id){
   type=type||S.tab;S.moType=type;S.editId=id||null;
   const rec=id?(type==='shtat'?S.shtat:S.gph).find(r=>r.id===id):null;
+  S.moOpenVer=rec?(rec.updatedAt||null):null; // К-2: базовая версия для детекции конфликта
   const v=rec||{};const cu=S.user&&S.user!=='__mgr__'?S.user:'';
   document.getElementById('moTitle').textContent=(id?'Редактировать':'Добавить')+' — '+(type==='shtat'?'Штат':'ГПХ');
   const opts=(arr,sel,norm)=>arr.map(e=>`<option value="${esc(e)}" ${(norm?norm(sel):sel)===e?'selected':''}>${esc(e)}</option>`).join('');
@@ -2256,7 +2316,7 @@ function openModal(type,id){
   }
   document.getElementById('mo').classList.add('open');
 }
-function closeMo(){document.getElementById('mo').classList.remove('open');S.editId=null;}
+function closeMo(){document.getElementById('mo').classList.remove('open');S.editId=null;S.moOpenVer=null;}
 
 function switchMoTab(name,btn){
   document.querySelectorAll('.mo-tab').forEach(t=>t.classList.remove('active'));
@@ -2322,11 +2382,18 @@ async function addComment(){
   if(!rec.comments)rec.comments=[];
   rec.comments.push({id:genId(),user:S.user||'Аноним',text,ts:new Date().toISOString()});
   inp.value='';
+  stampRec(rec);
+  S.moOpenVer=rec.updatedAt; // своя правка открытой записи — сдвигаем базовую версию
+  recDirty(S.moType,rec.id);
   renderMoComments(rec);
   markDirty();
   if(dbClient){
     markOwnWrite(rec.id);
-    try{await dbClient.from(S.moType==='shtat'?'or_shtat':'or_gph').upsert({id:rec.id,data:rec,updated_at:new Date().toISOString()});}
+    try{
+      const {error}=await dbClient.from(S.moType==='shtat'?'or_shtat':'or_gph').upsert({id:rec.id,data:rec,updated_at:rec.updatedAt});
+      if(error) throw error;
+      markRecSaved(S.moType,rec.id);
+    }
     catch(e){console.error('addComment:',e);}
   }
 }
@@ -2337,11 +2404,18 @@ async function deleteComment(commentId){
   const rec=arr.find(r=>r.id===S.editId);
   if(!rec)return;
   rec.comments=(rec.comments||[]).filter(c=>c.id!==commentId);
+  stampRec(rec);
+  S.moOpenVer=rec.updatedAt; // своя правка открытой записи
+  recDirty(S.moType,rec.id);
   renderMoComments(rec);
   markDirty();
   if(dbClient){
     markOwnWrite(rec.id);
-    try{await dbClient.from(S.moType==='shtat'?'or_shtat':'or_gph').upsert({id:rec.id,data:rec,updated_at:new Date().toISOString()});}
+    try{
+      const {error}=await dbClient.from(S.moType==='shtat'?'or_shtat':'or_gph').upsert({id:rec.id,data:rec,updated_at:rec.updatedAt});
+      if(error) throw error;
+      markRecSaved(S.moType,rec.id);
+    }
     catch(e){console.error('deleteComment:',e);}
   }
 }
@@ -2376,6 +2450,16 @@ async function saveMo(){
       if(changes.length)rec.history=[...rec.history,{id:genId(),user:S.user||'Аноним',ts:new Date().toISOString(),changes}];
     }
   }
+  // К-2: детекция конфликта — для существующих записей сверяем версию в БД с той,
+  // что была при открытии формы. Если кто-то изменил запись параллельно — не затираем.
+  if(wasEdit && dbClient){
+    const remoteVer = await fetchRemoteVer(type, rec.id);
+    if(remoteVer && S.moOpenVer && remoteVer !== S.moOpenVer){
+      const reload = confirm('⚠️ Эта запись была изменена другим пользователем, пока вы её редактировали.\n\nОК — загрузить актуальную версию (ваши правки в этой форме будут потеряны).\nОтмена — остаться в форме, чтобы скопировать свои изменения вручную.');
+      if(reload){ closeMo(); await loadDataFromDB(); render(); }
+      return; // в любом случае не сохраняем поверх чужой свежей версии
+    }
+  }
   closeMo();
   try{
     await dbUpsert(type,rec);
@@ -2405,15 +2489,24 @@ function doImportExcel(inp){
       updBg();
       localStorage.setItem('or_shtat',JSON.stringify(S.shtat));
       localStorage.setItem('or_gph',JSON.stringify(S.gph));
+      // К-3: регистрируем импортированные записи в dirty-set — если прямой upsert
+      // ниже упадёт, автосейв дотянет именно их (а не весь массив).
+      const impS=S.shtat.slice(-ns), impG=S.gph.slice(-ng);
+      impS.forEach(r=>recDirty('shtat',r.id));
+      impG.forEach(r=>recDirty('gph',r.id));
+      if(ns||ng) markDirty();
       if(dbClient){
         try{
-          const sr=S.shtat.slice(-ns).map(r=>({id:r.id,data:r,updated_at:r.updatedAt}));
-          const gr=S.gph.slice(-ng).map(r=>({id:r.id,data:r,updated_at:r.updatedAt}));
+          const sr=impS.map(r=>({id:r.id,data:r,updated_at:r.updatedAt}));
+          const gr=impG.map(r=>({id:r.id,data:r,updated_at:r.updatedAt}));
           // Маркируем все импортируемые ID — чтобы realtime-эхо не вызвало повторный рендер
           sr.forEach(r=>markOwnWrite(r.id));
           gr.forEach(r=>markOwnWrite(r.id));
           if(sr.length) await dbClient.from('or_shtat').upsert(sr);
           if(gr.length) await dbClient.from('or_gph').upsert(gr);
+          impS.forEach(r=>recClean('shtat',r.id)); // успех — снимаем из набора
+          impG.forEach(r=>recClean('gph',r.id));
+          if(!anyRecDirty()) markSaved();
         }catch(e){console.error('Excel DB save:',e);}
       }
       render();notify(`Импорт Excel: Штат +${ns}, ГПХ +${ng} ✓`,'success');
@@ -2865,23 +2958,23 @@ async function saveContentMo(){
 async function dbUpsertContent(rec){
   const i=S.content.findIndex(r=>r.id===rec.id);
   if(i!==-1) S.content[i]=rec; else S.content.push(rec);
-  updBg(); markDirty();
+  updBg(); recDirty('content',rec.id); markDirty();
   localStorage.setItem('or_content',JSON.stringify(S.content));
   if(!dbClient) return;
   const {error}=await dbClient.from('or_content').upsert({id:rec.id,data:rec,updated_at:rec.updatedAt});
   if(error){setDbStatus('err');throw error;}
-  markSaved();
+  markRecSaved('content',rec.id);
 }
 
 async function delContent(id){
   if(!confirm('Удалить материал?')) return;
   S.content=S.content.filter(r=>r.id!==id);
-  updBg(); markDirty();
+  updBg(); recClean('content',id); markDirty();
   localStorage.setItem('or_content',JSON.stringify(S.content));
   if(dbClient){
     const {error}=await dbClient.from('or_content').delete().eq('id',id);
     if(error){setDbStatus('err');console.error('delContent:',error);return;}
-    markSaved();
+    markRecSaved('content',id);
   }
   renderKanban();
   notify('Удалено');
