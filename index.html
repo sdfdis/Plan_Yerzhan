@@ -424,7 +424,7 @@ textarea.fc{resize:vertical;min-height:64px}
 .my-kpi{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:18px}
 .my-sec{margin-bottom:14px}
 .my-sec-hd{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:var(--rs);background:var(--white);border:1px solid var(--bd);border-left:4px solid var(--bd);font-size:11px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.3px;margin-bottom:7px;cursor:pointer;user-select:none;transition:background .12s}
-.my-sec-hd:hover{background:#f8fafc}
+.my-sec-hd:hover{background:hsl(210, 40%, 98%)}
 .my-sec-cnt{font-family:var(--mono);background:var(--bg);padding:1px 7px;border-radius:10px;font-size:10.5px;color:var(--t3);font-weight:500;text-transform:none;margin-left:auto}
 .my-sec-arr{font-size:11px;color:var(--t3);transition:transform .2s;flex-shrink:0;margin-left:4px}
 .my-sec.collapsed .my-sec-arr{transform:rotate(-90deg)}
@@ -2061,23 +2061,20 @@ function refreshToday(){_today=new Date();_today.setHours(0,0,0,0);}
 function fmt(d){if(!d)return '';const dt=new Date(d);if(isNaN(dt))return String(d).slice(0,10);return dt.toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit',year:'numeric'});}
 function dclass(ds,stat){if(!ds||ns_(stat)==='Завершено')return '';const d=new Date(ds);if(isNaN(d))return '';const now=_today||new Date();const diff=(d-now)/86400000;return diff<0?'ov':diff<=7?'sn':'';}
 
-// ── DEADLINE (С-1 единый хелпер + Н-6 правило внеплана) ───
-// Эффективная дата дедлайна записи:
-//  • Штат План — Ок.план (dateEndPlan), как вписано вручную;
-//  • ГПХ — единая дата окончания (dateEnd);
-//  • Штат Внеплан (план-окончания нет): регламент «Разработка + Курс» = факт.начало + 2 мес;
-//    иначе дедлайна нет.
-function recDeadline(rec){
-  if(rec.dateEndPlan) return rec.dateEndPlan;
-  if(rec.dateEnd) return rec.dateEnd;
-  const vid=nv(rec.vidRaboty||'').toLowerCase().trim();
-  const tip=(rec.tipOR||'').toLowerCase().trim();
-  if(vid==='разработка' && tip==='курс' && rec.dateStartFact){
-    const d=new Date(rec.dateStartFact);
-    if(!isNaN(d)){ d.setMonth(d.getMonth()+2); return d.toISOString().slice(0,10); }
-  }
+// ── DEADLINE (С-1 единый хелпер + Н-6) ───────────────────
+// Дедлайн = та дата ОКОНЧАНИЯ, что реально заполнена:
+//  • Ок.план (dateEndPlan) — если есть (План);
+//  • иначе Ок.факт (dateEndFact) — Внеплан заполняет только фактические даты;
+//  • ГПХ — единая дата окончания (dateEnd).
+// Никаких вычислений — берём то, что эксперт ввёл. Просрочка подсвечивается
+// именно на той ячейке, чья дата используется как дедлайн.
+function recDeadlineField(rec){
+  if(rec.dateEndPlan) return 'dateEndPlan';
+  if(rec.dateEndFact) return 'dateEndFact';
+  if(rec.dateEnd) return 'dateEnd';
   return '';
 }
+function recDeadline(rec){ const f=recDeadlineField(rec); return f?rec[f]:''; }
 // → { dl: 'YYYY-MM-DD'|'', cls: '' | 'sn' | 'ov' }
 function deadlineState(rec){ const dl=recDeadline(rec); return {dl,cls:dclass(dl,rec.status)}; }
 function isOverdue(rec){ return deadlineState(rec).cls==='ov'; }
@@ -2114,10 +2111,10 @@ function renderShtat(){
   if(!data.length){tb.innerHTML=`<tr><td colspan="14">${emptyHtml()}</td></tr>`;return;}
   function shtatRow(r,i){
     const {dl,cls:dc}=deadlineState(r);
-    const onPlan=!!r.dateEndPlan;              // куда вешать индикатор
+    const fld=recDeadlineField(r);             // dateEndPlan | dateEndFact | ''
     const dcls=dc?' '+dc:'';
-    const epCls='tc-d'+(onPlan?dcls:'');        // Ок.план
-    const sfCls='tc-d'+(!onPlan?dcls:'');       // Нач.факт (для внеплана)
+    const epCls='tc-d'+(fld==='dateEndPlan'?dcls:'');  // Ок.план
+    const efCls='tc-d'+(fld==='dateEndFact'?dcls:'');  // Ок.факт (Внеплан)
     const icon=dc==='ov'?'⚠️':dc==='sn'?'🔔':'';
     const w=icon?` <span title="Дедлайн: ${fmt(dl)}">${icon}</span>`:'';
     const cc=(r.comments||[]).length;
@@ -2130,9 +2127,9 @@ function renderShtat(){
       <td class="tc-m">${esc(r.predpriyatie||'—')}</td>
       <td>${pvpBdg(r.planVnePlan)}</td>
       <td class="tc-d">${fmt(r.dateStartPlan)}</td>
-      <td class="${epCls}">${fmt(r.dateEndPlan)}${onPlan?w:''}</td>
-      <td class="${sfCls}">${fmt(r.dateStartFact)}${!onPlan?w:''}</td>
-      <td class="tc-d">${fmt(r.dateEndFact)}</td>
+      <td class="${epCls}">${fmt(r.dateEndPlan)}${fld==='dateEndPlan'?w:''}</td>
+      <td class="tc-d">${fmt(r.dateStartFact)}</td>
+      <td class="${efCls}">${fmt(r.dateEndFact)}${fld==='dateEndFact'?w:''}</td>
       <td><span class="badge-btn" onclick="openStatusPicker(event,'shtat','${r.id}')" title="Сменить статус">${bdg(r.status)}</span></td>
       <td class="tc-cm" title="${esc(r.kommentarii||'')}">${esc(r.kommentarii||'')}${cc?`<span style="color:var(--t3);font-size:10px;margin-left:4px">💬${cc}</span>`:''}</td>
       <td><div class="tc-act">
