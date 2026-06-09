@@ -891,6 +891,14 @@ tr.row-arc .tc-name,tr.row-arc .tc-m,tr.row-arc .tc-d,tr.row-arc .tc-cm{color:va
 
     <div class="tab-p" id="tab-mgr">
       <div class="mgr-wrap">
+        <div class="mgr-c" id="acctCard" style="display:none">
+          <h3>👤 Учётная запись</h3>
+          <p>Вы вошли как <strong id="acctEmail">—</strong>.</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-g" onclick="changePassword()">🔑 Сменить пароль</button>
+            <button class="btn btn-g" onclick="doLogout()">🚪 Выйти</button>
+          </div>
+        </div>
         <div class="mgr-c">
           <h3>📁 Импорт шаблона Excel</h3>
           <p>Загрузите <strong>Шаблон_План_Факт_ОР_V2.xlsx</strong> — данные листов «Штат» и «ГПХ» перенесутся в систему с нормализацией статусов и видов работ.</p>
@@ -938,13 +946,13 @@ alter table or_shtat enable row level security;
 alter table or_gph enable row level security;
 alter table or_ref enable row level security;
 
--- Разрешить чтение/запись через anon-ключ
-create policy "anon_all" on or_shtat
-  for all using (true) with check (true);
-create policy "anon_all" on or_gph
-  for all using (true) with check (true);
-create policy "anon_all" on or_ref
-  for all using (true) with check (true);
+-- Доступ ТОЛЬКО для авторизованных пользователей (anon заблокирован)
+create policy "auth_all" on or_shtat
+  for all to authenticated using (true) with check (true);
+create policy "auth_all" on or_gph
+  for all to authenticated using (true) with check (true);
+create policy "auth_all" on or_ref
+  for all to authenticated using (true) with check (true);
 
 -- Контент-план
 create table if not exists or_content (
@@ -953,8 +961,8 @@ create table if not exists or_content (
   updated_at timestamptz default now()
 );
 alter table or_content enable row level security;
-create policy "anon_all" on or_content
-  for all using (true) with check (true);
+create policy "auth_all" on or_content
+  for all to authenticated using (true) with check (true);
 
 -- Таблица бекапов
 create table if not exists or_backups (
@@ -966,8 +974,8 @@ create table if not exists or_backups (
   data jsonb not null default '{}'
 );
 alter table or_backups enable row level security;
-create policy "anon_all" on or_backups
-  for all using (true) with check (true);
+create policy "auth_all" on or_backups
+  for all to authenticated using (true) with check (true);
 
 -- ⚡ Realtime-синхронизация между пользователями
 -- Выполните отдельно если таблицы уже существуют:
@@ -1027,6 +1035,31 @@ alter publication supabase_realtime add table or_ref;<button class="sql-copy" on
     <div class="db-box-f">
       <button class="btn btn-g" onclick="skipDBSetup()">Пропустить (локально)</button>
       <button class="btn btn-p" id="dbConnectBtn" onclick="connectDB()">Подключить</button>
+    </div>
+  </div>
+</div>
+
+<!-- Экран входа (Supabase Auth) -->
+<div class="db-setup" id="loginScreen">
+  <div class="db-box" style="max-width:420px">
+    <div class="db-box-h">
+      <h2>🔐 Вход в систему</h2>
+      <p>Учёт образовательных ресурсов · ERG Corporate University.<br>Введите логин и пароль, выданные администратором.</p>
+    </div>
+    <div class="db-box-b">
+      <div class="db-err" id="loginErr"></div>
+      <div class="db-field">
+        <label>Email</label>
+        <input id="loginEmail" type="email" placeholder="name@erg.kz" autocomplete="username" spellcheck="false">
+      </div>
+      <div class="db-field">
+        <label>Пароль</label>
+        <input id="loginPass" type="password" placeholder="••••••••" autocomplete="current-password">
+        <div class="db-hint">Забыли пароль — обратитесь к администратору для сброса.</div>
+      </div>
+    </div>
+    <div class="db-box-f">
+      <button class="btn btn-p" id="loginBtn" onclick="doLogin()" style="width:100%;justify-content:center">Войти</button>
     </div>
   </div>
 </div>
@@ -1229,6 +1262,84 @@ function tryInitDB(){
   if(!url||!key) return false;
   try{dbClient=supabase.createClient(url,key);return true;}
   catch(e){console.error('Supabase init:',e);return false;}
+}
+
+// ── AUTH (Фаза 2: К-1 / Н-1) ──────────────────────────────
+function showLogin(){
+  const s=document.getElementById('loginScreen');
+  if(s){ s.classList.add('show'); setTimeout(()=>document.getElementById('loginEmail')?.focus(),50); }
+}
+function hideLogin(){ document.getElementById('loginScreen')?.classList.remove('show'); }
+
+async function doLogin(){
+  const errEl=document.getElementById('loginErr');
+  const btn=document.getElementById('loginBtn');
+  const email=(document.getElementById('loginEmail')?.value||'').trim();
+  const pass=document.getElementById('loginPass')?.value||'';
+  errEl.classList.remove('show');
+  if(!email||!pass){ errEl.textContent='Введите email и пароль.'; errEl.classList.add('show'); return; }
+  if(!dbClient){ errEl.textContent='Нет подключения к Supabase.'; errEl.classList.add('show'); return; }
+  btn.textContent='Вход…'; btn.disabled=true;
+  try{
+    const {data,error}=await dbClient.auth.signInWithPassword({email,password:pass});
+    if(error) throw error;
+    S.authEmail=data.user?.email||email;
+    hideLogin();
+    const p=document.getElementById('loginPass'); if(p) p.value='';
+    updateAcctUI();
+    await loadFromDBAfterAuth();
+  }catch(e){
+    errEl.textContent='Не удалось войти: '+(e.message||e); errEl.classList.add('show');
+  }finally{
+    btn.textContent='Войти'; btn.disabled=false;
+  }
+}
+
+async function doLogout(){
+  if(!confirm('Выйти из системы?')) return;
+  try{ if(dbClient) await dbClient.auth.signOut(); }catch(e){ console.error('signOut:',e); }
+  location.reload();
+}
+
+async function changePassword(){
+  const np=prompt('Новый пароль (минимум 6 символов):');
+  if(np===null) return;
+  if(np.length<6){ notify('Пароль слишком короткий (мин. 6 символов)','error'); return; }
+  const np2=prompt('Повторите новый пароль:');
+  if(np2===null) return;
+  if(np!==np2){ notify('Пароли не совпадают','error'); return; }
+  try{
+    const {error}=await dbClient.auth.updateUser({password:np});
+    if(error) throw error;
+    notify('Пароль изменён ✓','success');
+  }catch(e){ notify('Ошибка смены пароля: '+(e.message||e),'error'); }
+}
+
+function updateAcctUI(){
+  const card=document.getElementById('acctCard');
+  const em=document.getElementById('acctEmail');
+  if(S.authEmail){ if(em) em.textContent=S.authEmail; if(card) card.style.display=''; }
+  else { if(card) card.style.display='none'; }
+}
+
+// Единая загрузка данных после подтверждённой авторизации
+async function loadFromDBAfterAuth(){
+  setDbStatus('ok');
+  showLoader(true,'Загрузка данных из Supabase…');
+  try{
+    await loadRefFromDB();
+    await loadDataFromDB();
+    await autoArchive();
+    markSaved();
+    startRealtimeSync();
+  }catch(e){
+    console.error('DB load:',e);
+    notify('Ошибка загрузки из Supabase','error');
+    setDbStatus('err');
+  }finally{
+    showLoader(false);
+    syncUserSel();updBg();render();
+  }
 }
 
 function copySql(){
@@ -3462,26 +3573,31 @@ async function init(){
   startAutoSave();
 
   if(hasDB){
-    setDbStatus('ok');
-    showLoader(true,'Загрузка данных из Supabase…');
-    try{
-      await loadRefFromDB();
-      await loadDataFromDB();
-      await autoArchive();
-      markSaved();
-      startRealtimeSync(); // WebSocket-подписка на изменения от других пользователей
-    }catch(e){
-      console.error('init DB load:',e);
-      notify('Ошибка загрузки из Supabase — работаем офлайн','error');
-      setDbStatus('err');
-    }finally{
-      showLoader(false);
-      syncUserSel();updBg();render();
+    // Гейт авторизации: грузим данные только при активной сессии, иначе — экран входа
+    let session=null;
+    try{ const {data}=await dbClient.auth.getSession(); session=data?.session||null; }
+    catch(e){ console.error('getSession:',e); }
+    if(session){
+      S.authEmail=session.user?.email||'';
+      updateAcctUI();
+      await loadFromDBAfterAuth();
+    }else{
+      showLogin(); // данные не грузим до входа
     }
+    // Реакция на выход/протухшую сессию
+    try{
+      dbClient.auth.onAuthStateChange((event)=>{
+        if(event==='SIGNED_OUT'){ S.authEmail=''; updateAcctUI(); showLogin(); }
+      });
+    }catch(e){ console.error('onAuthStateChange:',e); }
   }else if(!hardcoded&&!localStorage.getItem('supa_skip')){
     // Только если не вшито — предлагаем настроить вручную
     showDBSetup();
   }
+
+  // Enter в форме входа = «Войти»
+  document.getElementById('loginPass')?.addEventListener('keydown',e=>{ if(e.key==='Enter') doLogin(); });
+  document.getElementById('loginEmail')?.addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('loginPass')?.focus(); });
 
   document.addEventListener('keydown',e=>{
     if(e.key==='Escape'){closeMo();closeAllDrops();hideDBSetup();hideClearConfirm();document.getElementById('spPop').classList.remove('open');closeEmpPanel();closeGlobalSearch();closeReportSettings();closeReportPreview();}
