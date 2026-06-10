@@ -1366,17 +1366,29 @@ function copySql(){
 }
 
 // ── DB OPERATIONS ──────────────────────────────────────────
+// В-2: Supabase отдаёт максимум 1000 строк за запрос — тянем страницами по 1000, пока приходит полная страница
+async function fetchAllRows(table){
+  const PAGE=1000; let from=0; const out=[];
+  for(;;){
+    const {data,error}=await dbClient.from(table).select('data').order('updated_at',{ascending:true}).range(from,from+PAGE-1);
+    if(error) throw error;
+    const batch=data||[];
+    out.push(...batch);
+    if(batch.length<PAGE) break;
+    from+=PAGE;
+  }
+  return out;
+}
+
 async function loadDataFromDB(){
   if(!dbClient) return;
   try{
     const [sr,gr]=await Promise.all([
-      dbClient.from('or_shtat').select('data').order('updated_at',{ascending:true}),
-      dbClient.from('or_gph').select('data').order('updated_at',{ascending:true}),
+      fetchAllRows('or_shtat'),
+      fetchAllRows('or_gph'),
     ]);
-    if(sr.error) throw sr.error;
-    if(gr.error) throw gr.error;
-    S.shtat=(sr.data||[]).map(r=>r.data);
-    S.gph=(gr.data||[]).map(r=>r.data);
+    S.shtat=sr.map(r=>r.data);
+    S.gph=gr.map(r=>r.data);
   }catch(e){
     console.error('loadDataFromDB:',e);
     notify('Ошибка загрузки данных: '+e.message,'error');
@@ -1384,8 +1396,8 @@ async function loadDataFromDB(){
   }
   // or_content загружаем отдельно — таблица могла ещё не быть создана
   try{
-    const cr=await dbClient.from('or_content').select('data').order('updated_at',{ascending:true});
-    if(!cr.error) S.content=(cr.data||[]).map(r=>r.data);
+    const cr=await fetchAllRows('or_content');
+    S.content=cr.map(r=>r.data);
   }catch(e){ console.warn('or_content unavailable:',e); }
 }
 
@@ -1410,6 +1422,36 @@ async function dbSaveRef(){
   const rows=Object.keys(R).map(k=>({key:k,values:R[k]}));
   const {error}=await dbClient.from('or_ref').upsert(rows);
   if(error){console.error('dbSaveRef:',error);notify('Ошибка сохранения справочника','error');}
+}
+
+// В-5: сохранение ОДНОГО справочника через слияние — дельта (+val/−val) применяется
+// поверх актуального состояния БД, а не перезаписью всего локального массива.
+// Так параллельные добавления другого пользователя (в этот же ключ или в любой другой) не теряются.
+async function dbSaveRefKey(key, opts){
+  const add = opts&&opts.add, remove = opts&&opts.remove;
+  localStorage.setItem('or_ref',JSON.stringify(R));
+  if(!dbClient) return;
+  markOwnWrite('__ref__'); // не реагировать на realtime-эхо собственной записи
+  try{
+    const {data,error}=await dbClient.from('or_ref').select('values').eq('key',key);
+    if(error) throw error;
+    const row = data && data[0];
+    let vals = row && Array.isArray(row.values) ? row.values.slice() : [...R[key]];
+    if(add!=null && !vals.includes(add)) vals.push(add);
+    if(remove!=null){ const i=vals.indexOf(remove); if(i!==-1) vals.splice(i,1); }
+    const {error:upErr}=await dbClient.from('or_ref').upsert([{key,values:vals}]);
+    if(upErr) throw upErr;
+    // синхронизируем локальную копию с результатом слияния (могли подтянуться чужие значения)
+    const changed = JSON.stringify(R[key]) !== JSON.stringify(vals);
+    R[key]=vals;
+    localStorage.setItem('or_ref',JSON.stringify(R));
+    if(changed){
+      if(key==='emp') syncUserSel();
+      if(S.tab==='cfg'){ renderCfg(); const ni=document.getElementById('cinp-'+key); if(ni) ni.focus(); }
+    }
+  }catch(e){
+    console.error('dbSaveRefKey:',e); notify('Ошибка сохранения справочника','error');
+  }
 }
 
 // ── VERSIONING (К-2) ──────────────────────────────────────
@@ -2404,7 +2446,7 @@ function addRef(key){
   if(!val){inp.focus();return;}
   if(R[key].includes(val)){notify('Уже есть в списке','error');return;}
   R[key].push(val);
-  dbSaveRef();
+  dbSaveRefKey(key,{add:val});
   if(key==='emp')syncUserSel();
   renderCfg();
   // restore focus to input after re-render
@@ -2418,7 +2460,7 @@ function removeRef(key,val){
   if(idx===-1)return;
   if(!confirm(`Удалить «${val}» из справочника?`))return;
   R[key].splice(idx,1);
-  dbSaveRef();
+  dbSaveRefKey(key,{remove:val});
   if(key==='emp')syncUserSel();
   renderCfg();
   notify('Удалено');
