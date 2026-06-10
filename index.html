@@ -1447,7 +1447,7 @@ async function dbSaveRefKey(key, opts){
     localStorage.setItem('or_ref',JSON.stringify(R));
     if(changed){
       if(key==='emp') syncUserSel();
-      if(S.tab==='cfg'){ renderCfg(); const ni=document.getElementById('cinp-'+key); if(ni) ni.focus(); }
+      if(S.tab==='cfg') updateCfgCard(key);
     }
   }catch(e){
     console.error('dbSaveRefKey:',e); notify('Ошибка сохранения справочника','error');
@@ -1703,14 +1703,8 @@ function startRealtimeSync(){
         R[k]=vals;
       }
       localStorage.setItem('or_ref', JSON.stringify(R));
-      // С-4-предохранитель: сохраняем то, что пользователь печатает, поверх перерисовки
-      if(S.tab==='cfg'){
-        const ae=document.activeElement;
-        let sk=null,sv=null,sp=null;
-        if(ae && ae.id && ae.id.indexOf('cinp-')===0){ sk=ae.id.slice(5); sv=ae.value; sp=ae.selectionStart; }
-        renderCfg();
-        if(sk){ const ni=document.getElementById('cinp-'+sk); if(ni){ ni.value=sv; ni.focus(); try{ni.setSelectionRange(sp,sp);}catch(_){} } }
-      }
+      // С-4: точечно обновляем только этот справочник — поле ввода (своё и соседние) не трогаем
+      if(S.tab==='cfg') updateCfgCard(k);
       syncUserSel();
       notifyUpdate();
       return;
@@ -1750,7 +1744,6 @@ function startRealtimeSync(){
     .on('postgres_changes',{event:'*',schema:'public',table:'or_content'},p=>applyChange('or_content',p))
     .on('postgres_changes',{event:'*',schema:'public',table:'or_ref'},    p=>applyChange('or_ref',p))
     .subscribe(status=>{
-      if(status==='SUBSCRIBED') console.log('[Realtime] подписка активна');
       if(status==='CHANNEL_ERROR') console.warn('[Realtime] ошибка канала — возможно, таблицы не добавлены в публикацию. Выполните SQL из Менеджера.');
     });
 }
@@ -1880,7 +1873,12 @@ const SNORM={
 function nv(v){return (v&&VNORM[v.trim()])?VNORM[v.trim()]:(v||'').trim();}
 function ns_(s){const t=(s||'').trim();return SNORM[t]||t||'Не начато';}
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
-function genId(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8);}
+function genId(){
+  // crypto.randomUUID доступен в защищённом контексте (HTTPS, как GitHub Pages) —
+  // исключает коллизию id при одновременном создании записей разными экспертами.
+  if(typeof crypto!=='undefined'&&crypto.randomUUID){return crypto.randomUUID();}
+  return Date.now().toString(36)+Math.random().toString(36).slice(2,10)+Math.random().toString(36).slice(2,10);
+}
 
 // ── STATE ──────────────────────────────────────────────────
 const DKEYS=['fio','stat','vid','tip'];
@@ -2053,7 +2051,7 @@ function doSearch(v){S.f.q=v;checkResetBtn();render();}
 function openStatusPicker(e,table,id){
   e.stopPropagation();
   const pop=document.getElementById('spPop');
-  const statuses=R.stat||['Не начато','В работе','На проверке','Завершено','Приостановлено'];
+  const statuses=(R.stat&&R.stat.length)?R.stat:[...R_DEF.stat];
   pop.innerHTML=statuses.map(s=>`<div class="sp-item" data-table="${table}" data-id="${id}" data-status="${esc(s)}" onclick="setRecStatus(this.dataset.table,this.dataset.id,this.dataset.status)">${bdg(s)}</div>`).join('');
   const rect=e.currentTarget.getBoundingClientRect();
   // Показываем, затем измеряем реальные размеры и не даём уйти за экран
@@ -2440,13 +2438,7 @@ function renderCfg(){
 
 function cfgCard({key,icon,label,hint}){
   const items=R[key];
-  const rows=items.length
-    ?items.map((v,i)=>`
-      <div class="cfg-item">
-        <span class="cfg-item-lbl" title="${esc(v)}">${esc(v)}</span>
-        <button class="cfg-del" data-key="${key}" data-val="${esc(v)}" onclick="removeRef(this.dataset.key,this.dataset.val)" title="Удалить">✕</button>
-      </div>`).join('')
-    :'<div class="cfg-empty">Список пуст</div>';
+  const rows=items.length?cfgRows(key):'<div class="cfg-empty">Список пуст</div>';
   return `<div class="cfg-c">
     <div class="cfg-ct">
       <div class="cfg-icon">${icon}</div>
@@ -2461,6 +2453,26 @@ function cfgCard({key,icon,label,hint}){
     </div>
     <div class="cfg-list">${rows}</div>
   </div>`;
+}
+
+// С-4: разметка строк значений одного справочника (общая для полного и точечного рендера)
+function cfgRows(key){
+  const items=R[key]||[];
+  return items.length
+    ? items.map(v=>`<div class="cfg-item"><span class="cfg-item-lbl" title="${esc(v)}">${esc(v)}</span><button class="cfg-del" data-key="${key}" data-val="${esc(v)}" onclick="removeRef(this.dataset.key,this.dataset.val)" title="Удалить">✕</button></div>`).join('')
+    : '<div class="cfg-empty">Список пуст</div>';
+}
+
+// С-4: точечно обновляем ТОЛЬКО список значений и счётчик одной карточки,
+// не трогая поле ввода (ни этой карточки, ни соседних) — чужая правка не сбивает ввод.
+function updateCfgCard(key){
+  const inp=document.getElementById('cinp-'+key);
+  const card=inp&&inp.closest('.cfg-c');
+  if(!card){ if(S.tab==='cfg') renderCfg(); return; }
+  const countEl=card.querySelector('.cfg-count');
+  const listEl=card.querySelector('.cfg-list');
+  if(countEl) countEl.textContent=(R[key]||[]).length;
+  if(listEl) listEl.innerHTML=cfgRows(key);
 }
 
 function addRef(key){
@@ -3253,6 +3265,11 @@ document.addEventListener('click',e=>{
   if(!e.target.closest('.ms-wrap')&&!e.target.closest('.ms-drop'))closeAllDrops();
   if(!e.target.closest('.sp-pop')&&!e.target.closest('.badge-btn'))document.getElementById('spPop').classList.remove('open');
 });
+// С-5: попап статуса позиционируется fixed по ячейке — при скролле он отрывается, поэтому закрываем его на любой скролл (capture ловит и прокрутку внутренних контейнеров таблицы)
+window.addEventListener('scroll',()=>{
+  const p=document.getElementById('spPop');
+  if(p&&p.classList.contains('open')) p.classList.remove('open');
+},true);
 
 // ── GLOBAL SEARCH ──────────────────────────────────────────
 let _gsItems = []; // flat list of current result items for keyboard nav
