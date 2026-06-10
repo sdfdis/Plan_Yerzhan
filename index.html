@@ -2667,11 +2667,12 @@ function doImportExcel(inp){
   rd.onload=async e=>{
     try{
       const wb=XLSX.read(e.target.result,{type:'array',cellDates:true});
-      let ns=0,ng=0;
+      let ns=0,ng=0,skS=0,skG=0;
+      const nk=s=>String(s||'').trim().toLowerCase().replace(/\s+/g,' ');
       const ws=wb.Sheets['Штат'];
-      if(ws){const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});for(let i=1;i<rows.length;i++){const r=rows[i];if(!r[1]&&!r[4])continue;const rec={id:genId(),fio:String(r[1]||'').trim(),vidRaboty:nv(String(r[2]||'').trim()),tipOR:String(r[3]||'').trim(),navOR:String(r[4]||'').trim(),predpriyatie:String(r[5]||'').trim(),planVnePlan:String(r[6]||'').trim(),dateStartPlan:pdate(r[7]),dateEndPlan:pdate(r[8]),dateStartFact:pdate(r[9]),dateEndFact:pdate(r[10]),status:ns_(String(r[11]||'Не начато').trim()),kommentarii:String(r[12]||'').trim(),createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};if(rec.navOR){S.shtat.push(rec);ns++;}}}
+      if(ws){const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});const seenS=new Set(S.shtat.map(x=>nk(x.fio)+'|'+nk(x.navOR)));for(let i=1;i<rows.length;i++){const r=rows[i];if(!r[1]&&!r[4])continue;const rec={id:genId(),fio:String(r[1]||'').trim(),vidRaboty:nv(String(r[2]||'').trim()),tipOR:String(r[3]||'').trim(),navOR:String(r[4]||'').trim(),predpriyatie:String(r[5]||'').trim(),planVnePlan:String(r[6]||'').trim(),dateStartPlan:pdate(r[7]),dateEndPlan:pdate(r[8]),dateStartFact:pdate(r[9]),dateEndFact:pdate(r[10]),status:ns_(String(r[11]||'Не начато').trim()),kommentarii:String(r[12]||'').trim(),createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};if(rec.navOR){const k=nk(rec.fio)+'|'+nk(rec.navOR);if(seenS.has(k)){skS++;}else{S.shtat.push(rec);seenS.add(k);ns++;}}}}
       const wg=wb.Sheets['ГПХ'];
-      if(wg){const rows=XLSX.utils.sheet_to_json(wg,{header:1,defval:''});for(let i=1;i<rows.length;i++){const r=rows[i];if(!r[1]&&!r[5])continue;const rec={id:genId(),fioRazrab:String(r[1]||'').trim(),fioKurator:String(r[2]||'').trim(),vidRaboty:nv(String(r[3]||'').trim()),tipOR:String(r[4]||'').trim(),navOR:String(r[5]||'').trim(),predpriyatie:String(r[6]||'').trim(),dateStart:pdate(r[7]),dateEnd:pdate(r[8]),status:ns_(String(r[9]||'Не начато').trim()),kommentarii:String(r[10]||'').trim(),createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};if(rec.navOR){S.gph.push(rec);ng++;}}}
+      if(wg){const rows=XLSX.utils.sheet_to_json(wg,{header:1,defval:''});const seenG=new Set(S.gph.map(x=>nk(x.fioRazrab)+'|'+nk(x.navOR)));for(let i=1;i<rows.length;i++){const r=rows[i];if(!r[1]&&!r[5])continue;const rec={id:genId(),fioRazrab:String(r[1]||'').trim(),fioKurator:String(r[2]||'').trim(),vidRaboty:nv(String(r[3]||'').trim()),tipOR:String(r[4]||'').trim(),navOR:String(r[5]||'').trim(),predpriyatie:String(r[6]||'').trim(),dateStart:pdate(r[7]),dateEnd:pdate(r[8]),status:ns_(String(r[9]||'Не начато').trim()),kommentarii:String(r[10]||'').trim(),createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};if(rec.navOR){const k=nk(rec.fioRazrab)+'|'+nk(rec.navOR);if(seenG.has(k)){skG++;}else{S.gph.push(rec);seenG.add(k);ng++;}}}}
       updBg();
       localStorage.setItem('or_shtat',JSON.stringify(S.shtat));
       localStorage.setItem('or_gph',JSON.stringify(S.gph));
@@ -2695,7 +2696,7 @@ function doImportExcel(inp){
           if(!anyRecDirty()) markSaved();
         }catch(e){console.error('Excel DB save:',e);}
       }
-      render();notify(`Импорт Excel: Штат +${ns}, ГПХ +${ng} ✓`,'success');
+      render();notify(`Импорт Excel: Штат +${ns}, ГПХ +${ng}${(skS||skG)?`, пропущено дублей: ${skS+skG}`:''} ✓`,'success');
     }catch(ex){console.error(ex);notify('Ошибка импорта Excel','error');}
     inp.value='';
   };rd.readAsArrayBuffer(f);
