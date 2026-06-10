@@ -1647,11 +1647,9 @@ function startAutoSave(){
 // ── REALTIME SYNC ──────────────────────────────────────────
 // Защита от echo: если мы сами только что записали эту строку —
 // игнорируем входящее realtime-событие (Supabase шлёт его и автору тоже)
-const _ownWrites = new Set();
-function markOwnWrite(id){
-  _ownWrites.add(id);
-  setTimeout(()=>_ownWrites.delete(id), 4000);
-}
+// В-4: эхо-подавление записей теперь по сравнению версии (updatedAt) в applyChange,
+// поэтому чужая правка той же записи больше не глушится. Вызовы оставлены no-op для совместимости.
+function markOwnWrite(){}
 // В-5/realtime: подавляем ТОЛЬКО точное собственное эхо справочника (ключ+значения),
 // а любое отличающееся (т.е. чужое) изменение — применяем. Не глушим по одному общему ключу.
 const _ownRefSig = new Set();
@@ -1687,10 +1685,6 @@ function startRealtimeSync(){
   function applyChange(table, payload){
     const {eventType, new: newRow, old: oldRow} = payload;
 
-    // Пропускаем наши собственные записи
-    const changedId = (newRow||oldRow||{}).id;
-    if(changedId && _ownWrites.has(changedId)) return;
-
     if(table === 'or_ref'){
       const k = (newRow||oldRow||{}).key;
       if(!k) return;
@@ -1718,6 +1712,10 @@ function startRealtimeSync(){
       const rec = newRow.data ? {...newRow.data, id: newRow.id} : {...newRow};
       const idx = arr.findIndex(r => r.id === rec.id);
 
+      // В-4: своё эхо? — та же запись с той же версией (updatedAt) уже есть локально → пропускаем.
+      // Настоящая чужая правка приходит с другим updatedAt и применяется даже сразу после своей записи.
+      if(idx >= 0 && rec.updatedAt && arr[idx].updatedAt === rec.updatedAt) return;
+
       // Если эта запись сейчас открыта в модалке — не трогаем, предупреждаем
       if(S.editId === rec.id){
         notify('⚠️ Эта запись изменена другим пользователем', 'error');
@@ -1731,7 +1729,8 @@ function startRealtimeSync(){
       if(!id) return;
       if(S.editId === id) closeMo();
       const idx = arr.findIndex(r => r.id === id);
-      if(idx >= 0){ arr.splice(idx,1); localStorage.setItem('or_'+key, JSON.stringify(arr)); }
+      if(idx < 0) return; // уже нет локально (в т.ч. своё эхо удаления) — ничего не делаем, без ложного уведомления
+      arr.splice(idx,1); localStorage.setItem('or_'+key, JSON.stringify(arr));
     }
 
     debouncedRender(); // вместо прямого updBg()+render()
