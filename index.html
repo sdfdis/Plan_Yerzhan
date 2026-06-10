@@ -117,7 +117,7 @@ tbody td{padding:10px 13px;border-bottom:1px solid var(--bd);vertical-align:top}
 tbody tr:hover{background:#f9fafb}
 tbody tr:last-child td{border-bottom:none}
 .tc-n{color:var(--t3);font-family:var(--mono);font-size:11.5px;width:38px}
-.tc-name{font-weight:500;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tc-name{font-weight:500;max-width:280px;white-space:normal;word-break:break-word;overflow-wrap:anywhere;line-height:1.35}
 .tc-m{color:var(--t2);white-space:nowrap}
 .tc-d{font-family:var(--mono);font-size:11.5px;white-space:nowrap;color:var(--t2)}
 .tc-d.ov{color:#dc2626;font-weight:600}
@@ -288,6 +288,10 @@ textarea.fc{resize:vertical;min-height:64px}
 .db-field input{width:100%;padding:8px 10px;border:1px solid var(--bd);border-radius:var(--rs);font-family:var(--mono);font-size:12.5px;color:var(--t1);outline:none;transition:border-color .15s;background:var(--bg)}
 .db-field input:focus{border-color:var(--acc);background:var(--white)}
 .db-field .db-hint{font-size:11px;color:var(--t3);margin-top:4px}
+.pass-wrap{position:relative}
+.pass-wrap input{padding:8px 38px 8px 10px}
+.pass-eye{position:absolute;right:5px;top:5px;height:28px;width:28px;display:flex;align-items:center;justify-content:center;background:none;border:none;cursor:pointer;font-size:15px;line-height:1;opacity:.55;transition:opacity .15s;border-radius:6px}
+.pass-eye:hover{opacity:1;background:var(--bg)}
 .db-box-f{padding:14px 24px;border-top:1px solid var(--bd);display:flex;gap:8px;justify-content:flex-end;background:#fafafa}
 .db-err{background:#fef2f2;border:1px solid #fca5a5;border-radius:var(--rs);padding:8px 12px;font-size:12px;color:#b91c1c;margin-bottom:12px;display:none}
 .db-err.show{display:block}
@@ -1054,7 +1058,10 @@ alter publication supabase_realtime add table or_ref;<button class="sql-copy" on
       </div>
       <div class="db-field">
         <label>Пароль</label>
-        <input id="loginPass" type="password" placeholder="••••••••" autocomplete="current-password">
+        <div class="pass-wrap">
+          <input id="loginPass" type="password" placeholder="••••••••" autocomplete="current-password">
+          <button type="button" class="pass-eye" id="passEye" onclick="togglePass()" aria-label="Показать пароль" title="Показать пароль">👁</button>
+        </div>
         <div class="db-hint">Забыли пароль — обратитесь к администратору для сброса.</div>
       </div>
     </div>
@@ -1270,6 +1277,13 @@ function showLogin(){
   if(s){ s.classList.add('show'); setTimeout(()=>document.getElementById('loginEmail')?.focus(),50); }
 }
 function hideLogin(){ document.getElementById('loginScreen')?.classList.remove('show'); }
+function togglePass(){
+  const inp=document.getElementById('loginPass'); const btn=document.getElementById('passEye'); if(!inp) return;
+  const show = inp.type==='password';
+  inp.type = show ? 'text' : 'password';
+  if(btn){ btn.textContent = show ? '🙈' : '👁'; btn.setAttribute('aria-label', show ? 'Скрыть пароль' : 'Показать пароль'); btn.title = btn.getAttribute('aria-label'); }
+  inp.focus();
+}
 
 async function doLogin(){
   const errEl=document.getElementById('loginErr');
