@@ -1418,8 +1418,8 @@ async function loadRefFromDB(){
 async function dbSaveRef(){
   localStorage.setItem('or_ref',JSON.stringify(R));
   if(!dbClient) return;
-  markOwnWrite('__ref__'); // не реагировать на realtime-эхо изменений справочника
   const rows=Object.keys(R).map(k=>({key:k,values:R[k]}));
+  rows.forEach(r=>markOwnRef(r.key, r.values)); // подавить эхо своих записей по сигнатуре
   const {error}=await dbClient.from('or_ref').upsert(rows);
   if(error){console.error('dbSaveRef:',error);notify('Ошибка сохранения справочника','error');}
 }
@@ -1431,7 +1431,6 @@ async function dbSaveRefKey(key, opts){
   const add = opts&&opts.add, remove = opts&&opts.remove;
   localStorage.setItem('or_ref',JSON.stringify(R));
   if(!dbClient) return;
-  markOwnWrite('__ref__'); // не реагировать на realtime-эхо собственной записи
   try{
     const {data,error}=await dbClient.from('or_ref').select('values').eq('key',key);
     if(error) throw error;
@@ -1439,6 +1438,7 @@ async function dbSaveRefKey(key, opts){
     let vals = row && Array.isArray(row.values) ? row.values.slice() : [...R[key]];
     if(add!=null && !vals.includes(add)) vals.push(add);
     if(remove!=null){ const i=vals.indexOf(remove); if(i!==-1) vals.splice(i,1); }
+    markOwnRef(key, vals); // подавить только своё эхо именно этой записи
     const {error:upErr}=await dbClient.from('or_ref').upsert([{key,values:vals}]);
     if(upErr) throw upErr;
     // синхронизируем локальную копию с результатом слияния (могли подтянуться чужие значения)
@@ -1652,6 +1652,14 @@ function markOwnWrite(id){
   _ownWrites.add(id);
   setTimeout(()=>_ownWrites.delete(id), 4000);
 }
+// В-5/realtime: подавляем ТОЛЬКО точное собственное эхо справочника (ключ+значения),
+// а любое отличающееся (т.е. чужое) изменение — применяем. Не глушим по одному общему ключу.
+const _ownRefSig = new Set();
+function markOwnRef(key, vals){
+  const s = key + '|' + JSON.stringify(vals);
+  _ownRefSig.add(s);
+  setTimeout(()=>_ownRefSig.delete(s), 4000);
+}
 
 let _rtChannel = null;
 let _rtNotifyTimer = null;
@@ -1684,10 +1692,26 @@ function startRealtimeSync(){
     if(changedId && _ownWrites.has(changedId)) return;
 
     if(table === 'or_ref'){
-      // Пропускаем свои изменения справочников
-      if(_ownWrites.has('__ref__')) return;
-      // Справочники маленькие — грузим целиком
-      loadRefFromDB().then(()=>{ renderCfg(); syncUserSel(); });
+      const k = (newRow||oldRow||{}).key;
+      if(!k) return;
+      const vals = newRow ? newRow.values : null;
+      // своё эхо? — точная сигнатура ключ+значения, иначе это чужое изменение → применяем
+      if(vals!=null && _ownRefSig.has(k + '|' + JSON.stringify(vals))) return;
+      if(eventType === 'DELETE'){
+        if(R[k]!==undefined && R_DEF[k]) R[k]=[...R_DEF[k]];
+      }else if(R[k]!==undefined && Array.isArray(vals)){
+        R[k]=vals;
+      }
+      localStorage.setItem('or_ref', JSON.stringify(R));
+      // С-4-предохранитель: сохраняем то, что пользователь печатает, поверх перерисовки
+      if(S.tab==='cfg'){
+        const ae=document.activeElement;
+        let sk=null,sv=null,sp=null;
+        if(ae && ae.id && ae.id.indexOf('cinp-')===0){ sk=ae.id.slice(5); sv=ae.value; sp=ae.selectionStart; }
+        renderCfg();
+        if(sk){ const ni=document.getElementById('cinp-'+sk); if(ni){ ni.value=sv; ni.focus(); try{ni.setSelectionRange(sp,sp);}catch(_){} } }
+      }
+      syncUserSel();
       notifyUpdate();
       return;
     }
