@@ -2703,12 +2703,13 @@ function doImportExcel(inp){
 }
 function exportExcel(){
   const wb=XLSX.utils.book_new();
-  const sh=[['№','ФИО разработчика','Вид работы','Тип ОР','Наименование ОР','Предприятие / Заказчик','План / Вне плана','Дата начала (план)','Дата окончания (план)','Дата начала (факт)','Дата окончания (факт)','Статус','Комментарии'],...S.shtat.map((r,i)=>[i+1,r.fio,nv(r.vidRaboty),r.tipOR,r.navOR,r.predpriyatie,r.planVnePlan,r.dateStartPlan,r.dateEndPlan,r.dateStartFact,r.dateEndFact,ns_(r.status),r.kommentarii])];
+  const srcS=filtered(S.shtat,false), srcG=filtered(S.gph,true);
+  const sh=[['№','ФИО разработчика','Вид работы','Тип ОР','Наименование ОР','Предприятие / Заказчик','План / Вне плана','Дата начала (план)','Дата окончания (план)','Дата начала (факт)','Дата окончания (факт)','Статус','Комментарии'],...srcS.map((r,i)=>[i+1,r.fio,nv(r.vidRaboty),r.tipOR,r.navOR,r.predpriyatie,r.planVnePlan,r.dateStartPlan,r.dateEndPlan,r.dateStartFact,r.dateEndFact,ns_(r.status),r.kommentarii])];
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(sh),'Штат');
-  const gh=[['№','ФИО разработчика','ФИО куратора','Вид работы','Тип ОР','Наименование ОР','Предприятие / Заказчик','Дата начала','Дата окончания','Статус','Комментарии'],...S.gph.map((r,i)=>[i+1,r.fioRazrab,r.fioKurator,nv(r.vidRaboty),r.tipOR,r.navOR,r.predpriyatie,r.dateStart,r.dateEnd,ns_(r.status),r.kommentarii])];
+  const gh=[['№','ФИО разработчика','ФИО куратора','Вид работы','Тип ОР','Наименование ОР','Предприятие / Заказчик','Дата начала','Дата окончания','Статус','Комментарии'],...srcG.map((r,i)=>[i+1,r.fioRazrab,r.fioKurator,nv(r.vidRaboty),r.tipOR,r.navOR,r.predpriyatie,r.dateStart,r.dateEnd,ns_(r.status),r.kommentarii])];
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(gh),'ГПХ');
   XLSX.writeFile(wb,`ОтчётОР_${new Date().toLocaleDateString('ru-RU').replace(/\./g,'-')}.xlsx`);
-  notify('Excel скачан ✓','success');
+  notify(`Excel скачан: ${srcS.length+srcG.length} записей (${S.showArchived?'архив':'актуальные'}, с учётом фильтров) ✓`,'success');
 }
 function clearAll(){ showClearConfirm(); }
 
