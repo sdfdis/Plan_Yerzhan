@@ -551,6 +551,8 @@ textarea.fc{resize:vertical;min-height:64px}
 .cc-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:300;display:none;align-items:flex-end;justify-content:center;padding:24px}
 .cc-overlay.show{display:flex}
 .cc-box{background:var(--white);border-radius:var(--r);width:100%;max-width:460px;box-shadow:0 -4px 40px rgba(0,0,0,.2);padding:28px 28px 24px;animation:ccup .22s ease}
+.cc-input{width:100%;margin-top:14px;padding:9px 11px;border:1px solid var(--bd);border-radius:var(--rs);font-family:var(--font);font-size:14px;box-sizing:border-box}
+.cc-input:focus{outline:none;border-color:var(--acc)}
 @keyframes ccup{from{transform:translateY(24px);opacity:0}to{transform:translateY(0);opacity:1}}
 .cc-icon{font-size:36px;text-align:center;margin-bottom:10px}
 .cc-title{font-size:15px;font-weight:700;color:#7f1d1d;text-align:center;margin-bottom:8px}
@@ -1091,6 +1093,20 @@ alter publication supabase_realtime add table or_ref;<button class="sql-copy" on
   <div class="emp-db" id="empBody"></div>
 </div>
 
+<!-- Generic confirm/prompt dialog (С-3) -->
+<div class="cc-overlay" id="uiDlgOverlay">
+  <div class="cc-box">
+    <div class="cc-icon" id="uiDlgIcon">⚠️</div>
+    <div class="cc-title" id="uiDlgTitle"></div>
+    <div class="cc-text" id="uiDlgText"></div>
+    <input id="uiDlgInput" class="cc-input" style="display:none">
+    <div class="cc-btns">
+      <button class="btn btn-g" id="uiDlgCancel">Отмена</button>
+      <button class="btn btn-p" id="uiDlgOk">ОК</button>
+    </div>
+  </div>
+</div>
+
 <!-- Clear All Confirm -->
 <div class="cc-overlay" id="ccOverlay">
   <div class="cc-box">
@@ -1314,16 +1330,16 @@ async function doLogin(){
 }
 
 async function doLogout(){
-  if(!confirm('Выйти из системы?')) return;
+  if(!(await uiConfirm({title:'Выход из системы',text:'Выйти из системы?',okText:'🚪 Выйти',icon:'🚪'}))) return;
   try{ if(dbClient) await dbClient.auth.signOut(); }catch(e){ console.error('signOut:',e); }
   location.reload();
 }
 
 async function changePassword(){
-  const np=prompt('Новый пароль (минимум 6 символов):');
+  const np=await uiPrompt({title:'Смена пароля',text:'Новый пароль (минимум 6 символов):',password:true,okText:'Далее',icon:'🔑'});
   if(np===null) return;
   if(np.length<6){ notify('Пароль слишком короткий (мин. 6 символов)','error'); return; }
-  const np2=prompt('Повторите новый пароль:');
+  const np2=await uiPrompt({title:'Смена пароля',text:'Повторите новый пароль:',password:true,okText:'🔑 Сменить',icon:'🔑'});
   if(np2===null) return;
   if(np!==np2){ notify('Пароли не совпадают','error'); return; }
   try{
@@ -1762,7 +1778,7 @@ async function pruneBackups(){
 
 async function createBackup(){
   if(!dbClient){ notify('Бекап доступен только при подключении к Supabase', 'error'); return; }
-  const label = prompt('Название бекапа (необязательно):', new Date().toLocaleString('ru-RU'));
+  const label = await uiPrompt({title:'Создание бекапа',text:'Название бекапа (необязательно):',value:new Date().toLocaleString('ru-RU'),okText:'📦 Создать',icon:'📦'});
   if(label === null) return;
   showLoader(true, 'Создание бекапа…');
   try{
@@ -1786,7 +1802,7 @@ async function createBackup(){
 }
 
 async function restoreBackup(id){
-  if(!confirm('Восстановить этот бекап? Текущие данные будут перезаписаны.')) return;
+  if(!(await uiConfirm({title:'Восстановление бекапа',text:'Восстановить этот бекап? Текущие данные будут перезаписаны.',okText:'Восстановить',danger:true,icon:'♻️'}))) return;
   showLoader(true, 'Восстановление…');
   try{
     const {data, error} = await dbClient.from('or_backups').select('data, label').eq('id', id).single();
@@ -1809,7 +1825,7 @@ async function restoreBackup(id){
 }
 
 async function deleteBackup(id, label){
-  if(!confirm('Удалить бекап «' + label + '»?')) return;
+  if(!(await uiConfirm({title:'Удаление бекапа',text:'Удалить бекап «' + esc(label) + '»?',okText:'🗑️ Удалить',danger:true}))) return;
   const {error} = await dbClient.from('or_backups').delete().eq('id', id);
   if(error){ notify('Ошибка: ' + error.message, 'error'); return; }
   notify('Бекап удалён');
@@ -2490,10 +2506,10 @@ function addRef(key){
   notify(`Добавлено: ${val}`,'success');
 }
 
-function removeRef(key,val){
+async function removeRef(key,val){
   const idx=R[key].indexOf(val);
   if(idx===-1)return;
-  if(!confirm(`Удалить «${val}» из справочника?`))return;
+  if(!(await uiConfirm({title:'Удаление значения',text:`Удалить «${esc(val)}» из справочника?`,okText:'🗑️ Удалить',danger:true})))return;
   R[key].splice(idx,1);
   dbSaveRefKey(key,{remove:val});
   if(key==='emp')syncUserSel();
@@ -2718,7 +2734,7 @@ async function saveMo(){
   if(wasEdit && dbClient){
     const remoteVer = await fetchRemoteVer(type, rec.id);
     if(remoteVer && S.moOpenVer && remoteVer !== S.moOpenVer){
-      const reload = confirm('⚠️ Эта запись была изменена другим пользователем, пока вы её редактировали.\n\nОК — загрузить актуальную версию (ваши правки в этой форме будут потеряны).\nОтмена — остаться в форме, чтобы скопировать свои изменения вручную.');
+      const reload = await uiConfirm({title:'Запись изменена другим пользователем',text:'Запись была изменена другим пользователем, пока вы её редактировали.<br><br>«Загрузить актуальную» — ваши правки в этой форме будут потеряны.<br>«Остаться в форме» — чтобы скопировать свои изменения вручную.',okText:'Загрузить актуальную',cancelText:'Остаться в форме',icon:'⚠️'});
       if(reload){ closeMo(); await loadDataFromDB(); render(); }
       return; // в любом случае не сохраняем поверх чужой свежей версии
     }
@@ -2732,7 +2748,7 @@ async function saveMo(){
 }
 
 async function del(type,id){
-  if(!confirm('Удалить запись?'))return;
+  if(!(await uiConfirm({title:'Удаление записи',text:'Удалить запись?',okText:'🗑️ Удалить',danger:true})))return;
   await dbDelete(type,id);
   render();notify('Запись удалена');
 }
@@ -2799,6 +2815,45 @@ function showClearConfirm(){
 }
 function hideClearConfirm(){
   document.getElementById('ccOverlay').classList.remove('show');
+}
+
+// С-3: единые модальные диалоги вместо нативных confirm()/prompt()
+function uiConfirm(o){
+  o=o||{};
+  return new Promise(res=>{
+    const ov=document.getElementById('uiDlgOverlay');
+    document.getElementById('uiDlgIcon').textContent=o.icon||'⚠️';
+    document.getElementById('uiDlgTitle').textContent=o.title||'Подтвердите действие';
+    document.getElementById('uiDlgText').innerHTML=o.text||'';
+    document.getElementById('uiDlgInput').style.display='none';
+    const ok=document.getElementById('uiDlgOk'), cancel=document.getElementById('uiDlgCancel');
+    ok.textContent=o.okText||'ОК'; ok.className='btn '+(o.danger?'btn-dg':'btn-p');
+    cancel.textContent=o.cancelText||'Отмена';
+    function done(v){ ov.classList.remove('show'); ok.onclick=cancel.onclick=null; document.removeEventListener('keydown',onkey,true); res(v); }
+    function onkey(e){ if(e.key==='Escape'){e.preventDefault();e.stopPropagation();done(false);} else if(e.key==='Enter'){e.preventDefault();e.stopPropagation();done(true);} }
+    ok.onclick=()=>done(true); cancel.onclick=()=>done(false);
+    document.addEventListener('keydown',onkey,true);
+    ov.classList.add('show'); setTimeout(()=>ok.focus(),30);
+  });
+}
+function uiPrompt(o){
+  o=o||{};
+  return new Promise(res=>{
+    const ov=document.getElementById('uiDlgOverlay');
+    document.getElementById('uiDlgIcon').textContent=o.icon||'✏️';
+    document.getElementById('uiDlgTitle').textContent=o.title||'Введите значение';
+    document.getElementById('uiDlgText').innerHTML=o.text||'';
+    const inp=document.getElementById('uiDlgInput');
+    inp.style.display=''; inp.type=o.password?'password':'text'; inp.value=o.value||''; inp.placeholder=o.placeholder||'';
+    const ok=document.getElementById('uiDlgOk'), cancel=document.getElementById('uiDlgCancel');
+    ok.textContent=o.okText||'ОК'; ok.className='btn btn-p';
+    cancel.textContent=o.cancelText||'Отмена';
+    function done(v){ ov.classList.remove('show'); ok.onclick=cancel.onclick=inp.onkeydown=null; res(v); }
+    ok.onclick=()=>done(inp.value);
+    cancel.onclick=()=>done(null);
+    inp.onkeydown=e=>{ if(e.key==='Enter'){e.preventDefault();done(inp.value);} else if(e.key==='Escape'){e.preventDefault();done(null);} };
+    ov.classList.add('show'); setTimeout(()=>{inp.focus();inp.select();},30);
+  });
 }
 
 async function confirmClearAll(){
@@ -3232,7 +3287,7 @@ async function dbUpsertContent(rec){
 }
 
 async function delContent(id){
-  if(!confirm('Удалить материал?')) return;
+  if(!(await uiConfirm({title:'Удаление материала',text:'Удалить материал?',okText:'🗑️ Удалить',danger:true}))) return;
   S.content=S.content.filter(r=>r.id!==id);
   updBg(); recClean('content',id); markDirty();
   localStorage.setItem('or_content',JSON.stringify(S.content));
