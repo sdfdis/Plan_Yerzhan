@@ -1479,9 +1479,11 @@ function stampRec(rec){ rec.updatedAt = new Date().toISOString(); return rec; }
 async function fetchRemoteVer(table,id){
   if(!dbClient) return null;
   try{
-    const {data,error}=await dbClient.from('or_'+table).select('updated_at').eq('id',id).maybeSingle();
+    // К-2 фикс: читаем версию из data.updatedAt (JSONB хранит строку дословно и совпадает с moOpenVer).
+    // Колонку updated_at (timestamptz) Postgres переформатирует ('+00:00' вместо 'Z', без мс) — сравнение всегда ложно срабатывало.
+    const {data,error}=await dbClient.from('or_'+table).select('data').eq('id',id).maybeSingle();
     if(error){ console.warn('fetchRemoteVer:',error); return null; }
-    return data ? data.updated_at : null;
+    return data && data.data ? (data.data.updatedAt||null) : null;
   }catch(e){ console.warn('fetchRemoteVer:',e); return null; }
 }
 
