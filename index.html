@@ -336,9 +336,6 @@ textarea.fc{resize:vertical;min-height:64px}
 .db-status-dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0}
 
 /* SQL block in Manager */
-.sql-block{background:#0d1b2a;border-radius:var(--rs);padding:14px 16px;font-family:var(--mono);font-size:11.5px;color:#a5b4c8;line-height:1.7;overflow-x:auto;white-space:pre;margin:10px 0;position:relative}
-.sql-copy{position:absolute;top:8px;right:8px;background:rgba(255,255,255,.1);border:none;border-radius:4px;color:rgba(255,255,255,.6);font-size:11px;padding:3px 9px;cursor:pointer;font-family:var(--font);transition:all .15s}
-.sql-copy:hover{background:rgba(255,255,255,.18);color:#fff}
 
 /* KANBAN */
 .kb-wrap{padding:20px;min-height:100%}
@@ -924,76 +921,9 @@ tr.row-arc .tc-name,tr.row-arc .tc-m,tr.row-arc .tc-d,tr.row-arc .tc-cm{color:va
           <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
             <button class="btn btn-p" onclick="manualSave()">💾 Сохранить сейчас</button>
             <button class="btn btn-g" onclick="createBackup()">📦 Создать бекап</button>
-            <button class="btn btn-g" onclick="renderSaveMgr()">🔄 Обновить список</button>
+            <button class="btn btn-g" onclick="renderSaveMgr(true)">🔄 Обновить список</button>
           </div>
           <div id="saveMgrWrap"><div class="bk-empty">Загрузка…</div></div>
-        </div>
-        <div class="mgr-c">
-          <h3>🔌 Настройка Supabase</h3>
-          <p>Выполните этот SQL в редакторе Supabase (<strong>SQL Editor → New query</strong>), чтобы создать нужные таблицы.</p>
-          <div class="sql-block" id="sqlBlock">-- 1. Создайте проект на supabase.com
--- 2. Откройте SQL Editor и вставьте этот код:
-
-create table if not exists or_shtat (
-  id text primary key,
-  data jsonb not null default '{}',
-  updated_at timestamptz default now()
-);
-
-create table if not exists or_gph (
-  id text primary key,
-  data jsonb not null default '{}',
-  updated_at timestamptz default now()
-);
-
-create table if not exists or_ref (
-  key text primary key,
-  values jsonb not null default '[]'
-);
-
--- Включить Row Level Security
-alter table or_shtat enable row level security;
-alter table or_gph enable row level security;
-alter table or_ref enable row level security;
-
--- Доступ ТОЛЬКО для авторизованных пользователей (anon заблокирован)
-create policy "auth_all" on or_shtat
-  for all to authenticated using (true) with check (true);
-create policy "auth_all" on or_gph
-  for all to authenticated using (true) with check (true);
-create policy "auth_all" on or_ref
-  for all to authenticated using (true) with check (true);
-
--- Контент-план
-create table if not exists or_content (
-  id text primary key,
-  data jsonb not null default '{}',
-  updated_at timestamptz default now()
-);
-alter table or_content enable row level security;
-create policy "auth_all" on or_content
-  for all to authenticated using (true) with check (true);
-
--- Таблица бекапов
-create table if not exists or_backups (
-  id text primary key,
-  created_at timestamptz default now(),
-  label text,
-  shtat_count integer default 0,
-  gph_count integer default 0,
-  data jsonb not null default '{}'
-);
-alter table or_backups enable row level security;
-create policy "auth_all" on or_backups
-  for all to authenticated using (true) with check (true);
-
--- ⚡ Realtime-синхронизация между пользователями
--- Выполните отдельно если таблицы уже существуют:
-alter publication supabase_realtime add table or_shtat;
-alter publication supabase_realtime add table or_gph;
-alter publication supabase_realtime add table or_content;
-alter publication supabase_realtime add table or_ref;<button class="sql-copy" onclick="copySql()">Копировать</button></div>
-          <p style="font-size:12px;color:var(--t3);margin-top:8px">После выполнения SQL нажмите <strong>«🔌 База данных»</strong> в боковом меню и введите URL и anon-ключ проекта.</p>
         </div>
         <div class="mgr-c">
           <h3>⚠️ Очистка данных</h3>
@@ -1261,7 +1191,7 @@ async function connectDB(){
     const client=supabase.createClient(url,key);
     const {error}=await client.from('or_shtat').select('id').limit(1);
     if(error&&(error.code==='42P01'||error.message?.includes('does not exist'))){
-      errEl.textContent='Таблицы не найдены. Выполните SQL из раздела «Менеджер» → «Настройка Supabase».';
+      errEl.textContent='Таблицы не найдены в этом проекте Supabase. Проверьте URL и ключ или обратитесь к администратору.';
       errEl.classList.add('show');btn.textContent='Подключить';btn.disabled=false;return;
     }
     if(error) throw error;
@@ -1374,11 +1304,6 @@ async function loadFromDBAfterAuth(){
     showLoader(false);
     syncUserSel();updBg();render();
   }
-}
-
-function copySql(){
-  const txt=document.getElementById('sqlBlock').innerText.replace('Копировать','').trim();
-  navigator.clipboard.writeText(txt).then(()=>notify('SQL скопирован ✓','success'));
 }
 
 // ── DB OPERATIONS ──────────────────────────────────────────
@@ -1622,6 +1547,7 @@ async function saveAll(){
       }
       // Успех: снимаем подтверждённые id (markSaved ниже очистит остаток, если он пуст)
       ['shtat','gph','content'].forEach(t=>pushed[t].forEach(id=>recClean(t,id)));
+      setDbStatus('ok'); // п.5: успешный пуш снимает «Ошибка БД» после разового 401/403 при refresh
     }
     markSaved();
   } catch(e){
@@ -1796,7 +1722,7 @@ async function createBackup(){
     await pruneBackups();
     showLoader(false);
     notify('Бекап создан ✓', 'success');
-    renderSaveMgr();
+    renderSaveMgr(true);
   } catch(e){
     showLoader(false);
     notify('Ошибка создания бекапа: ' + e.message, 'error');
@@ -1807,8 +1733,9 @@ async function restoreBackup(id){
   if(!(await uiConfirm({title:'Восстановление бекапа',text:'Восстановить этот бекап? Текущие данные будут перезаписаны.',okText:'Восстановить',danger:true,icon:'♻️'}))) return;
   showLoader(true, 'Восстановление…');
   try{
-    const {data, error} = await dbClient.from('or_backups').select('data, label').eq('id', id).single();
+    const {data, error} = await dbClient.from('or_backups').select('data, label').eq('id', id).maybeSingle();
     if(error) throw error;
+    if(!data){ showLoader(false); notify('Бекап не найден (возможно, удалён)', 'error'); return; }
     if(data.data.shtat)   S.shtat   = data.data.shtat;
     if(data.data.gph)     S.gph     = data.data.gph;
     if(data.data.content) S.content = data.data.content;
@@ -1831,16 +1758,19 @@ async function deleteBackup(id, label){
   const {error} = await dbClient.from('or_backups').delete().eq('id', id);
   if(error){ notify('Ошибка: ' + error.message, 'error'); return; }
   notify('Бекап удалён');
-  renderSaveMgr();
+  renderSaveMgr(true);
 }
 
-async function renderSaveMgr(){
+let _mgrShown=false; // п.4: список бекапов грузим один раз за визит, не на каждый realtime-рендер
+async function renderSaveMgr(force){
   const wrap = document.getElementById('saveMgrWrap');
   if(!wrap) return;
   if(!dbClient){
     wrap.innerHTML = '<div class="bk-empty">Подключите Supabase для управления бекапами</div>';
     return;
   }
+  if(_mgrShown && !force) return; // п.4: пропускаем повторную загрузку без явного форса
+  _mgrShown=true;
   wrap.innerHTML = '<div class="bk-empty">Загрузка…</div>';
   try{
     const {data, error} = await dbClient.from('or_backups').select('id, created_at, label, shtat_count, gph_count').order('created_at', {ascending:false}).limit(20);
@@ -1942,6 +1872,7 @@ const TITLES={shtat:'Штат',gph:'ГПХ — Подрядчики',dash:'Да�
 const FIELD_LABELS={fio:'ФИО',fioRazrab:'Разработчик',fioKurator:'Куратор',vidRaboty:'Вид работы',tipOR:'Тип ОР',navOR:'Наименование',predpriyatie:'Предприятие',planVnePlan:'Пл/Вн',dateStartPlan:'Нач.план',dateEndPlan:'Ок.план',dateStartFact:'Нач.факт',dateEndFact:'Ок.факт',dateStart:'Дата нач.',dateEnd:'Дата ок.',status:'Статус',kommentarii:'Комментарий'};
 function go(tab){
   S.tab=tab;
+  _mgrShown=false; // п.4: новый заход на вкладку перезагружает список бекапов однократно
   closeSidebar();
   TABS.forEach(t=>{document.getElementById('nav-'+t)?.classList.toggle('active',t===tab);document.getElementById('tab-'+t)?.classList.toggle('active',t===tab);});
   document.getElementById('pgtitle').textContent=TITLES[tab];
@@ -3804,6 +3735,7 @@ async function init(){
     try{
       dbClient.auth.onAuthStateChange((event)=>{
         if(event==='SIGNED_OUT'){ S.authEmail=''; updateAcctUI(); showLogin(); }
+        else if(event==='TOKEN_REFRESHED'){ setDbStatus('ok'); } // п.5: refresh токена не оставляет «Ошибка БД»
       });
     }catch(e){ console.error('onAuthStateChange:',e); }
   }else if(!hardcoded&&!localStorage.getItem('supa_skip')){
