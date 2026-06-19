@@ -2090,7 +2090,8 @@ function removeTag(key,val){S.f[key].delete(val);syncBtn(key);render();}
 let _today = null;
 function refreshToday(){_today=new Date();_today.setHours(0,0,0,0);}
 function fmt(d){if(!d)return '';const dt=new Date(d);if(isNaN(dt))return String(d).slice(0,10);return dt.toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit',year:'numeric'});}
-function dclass(ds,stat){if(!ds||ns_(stat)==='Завершено')return '';const d=new Date(ds);if(isNaN(d))return '';const now=_today||new Date();const diff=(d-now)/86400000;return diff<0?'ov':diff<=7?'sn':'';}
+function dclass(ds,stat){const ns=ns_(stat);if(!ds||ns==='Завершено'||ns==='На оцифровке')return '';const d=new Date(ds);if(isNaN(d))return '';const now=_today||new Date();const diff=(d-now)/86400000;return diff<0?'ov':diff<=7?'sn':'';}
+
 
 // ── DEADLINE (С-1 единый хелпер + Н-6) ───────────────────
 // Дедлайн = та дата ОКОНЧАНИЯ, что реально заполнена:
@@ -2252,7 +2253,7 @@ function renderKPI(){
   const ip=all.filter(r=>ns_(r.status)==='В работе').length;
   const ns=all.filter(r=>ns_(r.status)==='Не начато').length;
   const now=new Date();now.setHours(0,0,0,0);
-  const ov=all.filter(r=>{const d=new Date(recDeadline(r));return !isNaN(d)&&d<now&&ns_(r.status)!=='Завершено';}).length;
+  const ov=all.filter(r=>{const d=new Date(recDeadline(r));return !isNaN(d)&&d<now&&ns_(r.status)!=='Завершено'&&ns_(r.status)!=='На оцифровке';}).length;
   document.getElementById('kpiG').innerHTML=`
     <div class="kpi-c"><div class="kpi-l">Штат</div><div class="kpi-v">${S.shtat.length}</div><div class="kpi-s">внутренние</div></div>
     <div class="kpi-c"><div class="kpi-l">ГПХ</div><div class="kpi-v">${S.gph.length}</div><div class="kpi-s">подрядчики</div></div>
@@ -2351,7 +2352,7 @@ function renderCharts(){
 function renderDL(){
   const now=new Date();now.setHours(0,0,0,0);
   const d30=new Date(now);d30.setDate(d30.getDate()+30);
-  const items=[...S.shtat.filter(r=>{if(r.archived)return false;const d=new Date(recDeadline(r));return !isNaN(d)&&d<=d30&&ns_(r.status)!=='Завершено';}), ...S.gph.filter(r=>{if(r.archived)return false;const d=new Date(recDeadline(r));return !isNaN(d)&&d<=d30&&ns_(r.status)!=='Завершено';})].sort((a,b)=>new Date(recDeadline(a)||'9999-12-31')-new Date(recDeadline(b)||'9999-12-31')).slice(0,10);
+  const items=[...S.shtat.filter(r=>{if(r.archived)return false;const d=new Date(recDeadline(r));return !isNaN(d)&&d<=d30&&ns_(r.status)!=='Завершено'&&ns_(r.status)!=='На оцифровке';}), ...S.gph.filter(r=>{if(r.archived)return false;const d=new Date(recDeadline(r));return !isNaN(d)&&d<=d30&&ns_(r.status)!=='Завершено'&&ns_(r.status)!=='На оцифровке';})].sort((a,b)=>new Date(recDeadline(a)||'9999-12-31')-new Date(recDeadline(b)||'9999-12-31')).slice(0,10);
   const el=document.getElementById('dlList');
   if(!items.length){el.innerHTML='<div style="color:var(--t3);font-size:13px;padding:20px;text-align:center">Нет предстоящих дедлайнов 🎉</div>';return;}
   el.innerHTML=items.map(r=>{
@@ -2945,7 +2946,7 @@ function openEmpPanel(name){
   const ip=all.filter(r=>ns_(r.status)==='В работе').length;
   const done=all.filter(r=>ns_(r.status)==='Завершено').length;
   const now=new Date();now.setHours(0,0,0,0);
-  const ov=all.filter(r=>{const d=new Date(recDeadline(r));return !isNaN(d)&&d<now&&ns_(r.status)!=='Завершено';}).length;
+  const ov=all.filter(r=>{const d=new Date(recDeadline(r));return !isNaN(d)&&d<now&&ns_(r.status)!=='Завершено'&&ns_(r.status)!=='На оцифровке';}).length;
 
   const initials=name.split(/\s+/).map(w=>w[0]||'').slice(0,2).join('').toUpperCase()||'?';
   document.getElementById('empAvatar').textContent=initials;
@@ -3021,7 +3022,7 @@ function renderMyTasks(){
   const total=all.length;
   const ip=all.filter(r=>ns_(r.status)==='В работе').length;
   const done=all.filter(r=>ns_(r.status)==='Завершено').length;
-  const ov=all.filter(r=>{const d=new Date(recDeadline(r));return !isNaN(d)&&d<now&&ns_(r.status)!=='Завершено';}).length;
+  const ov=all.filter(r=>{const d=new Date(recDeadline(r));return !isNaN(d)&&d<now&&ns_(r.status)!=='Завершено'&&ns_(r.status)!=='На оцифровке';}).length;
   const soon=all.filter(r=>{if(ns_(r.status)==='Завершено')return false;const d=new Date(recDeadline(r));if(isNaN(d))return false;const diff=(d-now)/86400000;return diff>=0&&diff<=7;}).length;
 
   // taskRow → mkTaskCard с иконкой дедлайна и кнопкой редактирования
@@ -3035,7 +3036,7 @@ function renderMyTasks(){
     });
   }
 
-  const ovRows=all.filter(r=>{const d=new Date(recDeadline(r));return !isNaN(d)&&d<now&&ns_(r.status)!=='Завершено';});
+  const ovRows=all.filter(r=>{const d=new Date(recDeadline(r));return !isNaN(d)&&d<now&&ns_(r.status)!=='Завершено'&&ns_(r.status)!=='На оцифровке';});
   const activeRows=all.filter(r=>{if(ns_(r.status)==='Завершено')return false;const d=new Date(recDeadline(r));return isNaN(d)||d>=now;});
   const doneRows=all.filter(r=>ns_(r.status)==='Завершено');
 
@@ -3607,7 +3608,7 @@ function generateReport(){
   const total=data.length;
   const done=data.filter(r=>ns_(r.status)==='Завершено').length;
   const ip=data.filter(r=>ns_(r.status)==='В работе').length;
-  const ov=data.filter(r=>{const d=new Date(recDeadline(r));return !isNaN(d)&&d<now&&ns_(r.status)!=='Завершено';}).length;
+  const ov=data.filter(r=>{const d=new Date(recDeadline(r));return !isNaN(d)&&d<now&&ns_(r.status)!=='Завершено'&&ns_(r.status)!=='На оцифровке';}).length;
 
   // Status counts
   const STAT_COLORS={'Не начато':'#94a3b8','В работе':'#3b82f6','На согласовании':'#f59e0b','Доработка':'#f97316','Завершено':'#22c55e','Приостановлено':'#ef4444','На оцифровке':'#7c3aed'};
