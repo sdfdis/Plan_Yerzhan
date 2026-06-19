@@ -140,6 +140,7 @@ tr.row-sn td{background:#fffbeb}
 .b-rw{background:#fff7ed;color:#c2410c}
 .b-dn{background:#f0fdf4;color:#15803d}
 .b-ps{background:#fef2f2;color:#b91c1c}
+.b-dg{background:#f5f3ff;color:#6d28d9}
 
 .ib{width:26px;height:26px;border-radius:var(--rs);border:1px solid var(--bd);background:transparent;display:inline-flex;align-items:center;justify-content:center;font-size:13px;cursor:pointer;transition:all .12s;color:var(--t2)}
 .ib:hover{background:var(--bg)}
@@ -1806,7 +1807,7 @@ function loadRLocal(){
     }
   }catch(e){Object.keys(R_DEF).forEach(k=>{R[k]=[...R_DEF[k]];});}
 }
-const SBCLS={'Не начато':'b-ns','В работе':'b-ip','На согласовании':'b-ag','Доработка':'b-rw','Завершено':'b-dn','Приостановлено':'b-ps'};
+const SBCLS={'Не начато':'b-ns','В работе':'b-ip','На согласовании':'b-ag','Доработка':'b-rw','Завершено':'b-dn','Приостановлено':'b-ps','На оцифровке':'b-dg'};
 const VNORM={'Методологическое сопровождение':'Методическое сопровождение','Метологическое сопровождение':'Методическое сопровождение','Методолгическое сопровождение':'Методическое сопровождение'};
 const SNORM={
   'Завершена':'Завершено','Завершена ':'Завершено',
@@ -2288,7 +2289,7 @@ function renderChartStat(){
   const data=getSrc('stat');
   const sc={};R.stat.forEach(s=>sc[s]=0);
   data.forEach(r=>{const s=ns_(r.status);sc[s]=(sc[s]||0)+1;});
-  const scol={'Не начато':'#94a3b8','В работе':'#3b82f6','На согласовании':'#f59e0b','Доработка':'#f97316','Завершено':'#22c55e','Приостановлено':'#ef4444'};
+  const scol={'Не начато':'#94a3b8','В работе':'#3b82f6','На согласовании':'#f59e0b','Доработка':'#f97316','Завершено':'#22c55e','Приостановлено':'#ef4444','На оцифровке':'#7c3aed'};
   const sl=R.stat.filter(s=>sc[s]>0);
   if(!sl.length){if(S.charts['cStat']){S.charts['cStat'].destroy();delete S.charts['cStat'];}return;}
   mkChart('cStat','doughnut',{labels:sl,datasets:[{data:sl.map(s=>sc[s]),backgroundColor:sl.map(s=>scol[s]),borderWidth:2,borderColor:'#fff'}]},{plugins:{legend:{position:'bottom',labels:{font:{size:10.5},boxWidth:11}}},cutout:'58%'});
@@ -3609,7 +3610,7 @@ function generateReport(){
   const ov=data.filter(r=>{const d=new Date(recDeadline(r));return !isNaN(d)&&d<now&&ns_(r.status)!=='Завершено';}).length;
 
   // Status counts
-  const STAT_COLORS={'Не начато':'#94a3b8','В работе':'#3b82f6','На согласовании':'#f59e0b','Доработка':'#f97316','Завершено':'#22c55e','Приостановлено':'#ef4444'};
+  const STAT_COLORS={'Не начато':'#94a3b8','В работе':'#3b82f6','На согласовании':'#f59e0b','Доработка':'#f97316','Завершено':'#22c55e','Приостановлено':'#ef4444','На оцифровке':'#7c3aed'};
   const sc={};
   data.forEach(r=>{const s=ns_(r.status);sc[s]=(sc[s]||0)+1;});
   const statSegs=Object.entries(sc).map(([l,v])=>({label:l,value:v,color:STAT_COLORS[l]||'#94a3b8'})).filter(x=>x.value>0);
