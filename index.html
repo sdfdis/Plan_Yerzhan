@@ -119,14 +119,14 @@ tbody tr:last-child td{border-bottom:none}
 .tc-n{color:var(--t3);font-family:var(--mono);font-size:11.5px;width:38px}
 .tc-name{font-weight:500;max-width:280px}
 .tc-name span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.35;word-break:break-word;overflow-wrap:anywhere}
+.tc-name.clip span,.tc-cm.clip .cm-text{cursor:pointer}
+.tc-name.clip span:hover,.tc-cm.clip .cm-text:hover{color:var(--acc)}
 .tc-m{color:var(--t2);white-space:nowrap}
 .tc-d{font-family:var(--mono);font-size:11.5px;white-space:nowrap;color:var(--t2)}
 .tc-d.ov{color:#dc2626;font-weight:600}
 .tc-d.sn{color:#d97706;font-weight:500}
 .tc-cm{color:var(--t2);font-size:11.5px;max-width:160px}
 .tc-cm .cm-text{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word;overflow-wrap:anywhere;line-height:1.4}
-.tc-name.clip span,.tc-cm.clip .cm-text{cursor:pointer}
-.tc-name.clip span:hover,.tc-cm.clip .cm-text:hover{color:var(--acc)}
 .tc-act{white-space:nowrap;display:flex;gap:3px}
 /* Popover для длинного текста */
 #cellPopover{position:fixed;z-index:9999;background:var(--white);border:1px solid var(--bd);border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.15);padding:12px 14px;max-width:360px;min-width:160px;font-size:13px;line-height:1.55;color:var(--t1);word-break:break-word;display:none;pointer-events:none}
@@ -143,7 +143,6 @@ tr.row-sn td{background:#fffbeb}
 .b-rw{background:#fff7ed;color:#c2410c}
 .b-dn{background:#f0fdf4;color:#15803d}
 .b-ps{background:#fef2f2;color:#b91c1c}
-.b-dg{background:#f5f3ff;color:#6d28d9}
 
 .ib{width:26px;height:26px;border-radius:var(--rs);border:1px solid var(--bd);background:transparent;display:inline-flex;align-items:center;justify-content:center;font-size:13px;cursor:pointer;transition:all .12s;color:var(--t2)}
 .ib:hover{background:var(--bg)}
@@ -1013,6 +1012,7 @@ tr.row-arc .tc-name,tr.row-arc .tc-m,tr.row-arc .tc-d,tr.row-arc .tc-cm{color:va
 
 <div class="sb-backdrop" id="sbBackdrop" onclick="closeSidebar()"></div>
 <div class="sp-pop" id="spPop"></div>
+<div id="cellPopover"></div>
 
 <div class="emp-overlay" id="empOverlay" onclick="closeEmpPanel()"></div>
 <div class="emp-drawer" id="empDrawer">
@@ -1810,7 +1810,7 @@ function loadRLocal(){
     }
   }catch(e){Object.keys(R_DEF).forEach(k=>{R[k]=[...R_DEF[k]];});}
 }
-const SBCLS={'Не начато':'b-ns','В работе':'b-ip','На согласовании':'b-ag','Доработка':'b-rw','Завершено':'b-dn','Приостановлено':'b-ps','На оцифровке':'b-dg'};
+const SBCLS={'Не начато':'b-ns','В работе':'b-ip','На согласовании':'b-ag','Доработка':'b-rw','Завершено':'b-dn','Приостановлено':'b-ps'};
 const VNORM={'Методологическое сопровождение':'Методическое сопровождение','Метологическое сопровождение':'Методическое сопровождение','Методолгическое сопровождение':'Методическое сопровождение'};
 const SNORM={
   'Завершена':'Завершено','Завершена ':'Завершено',
@@ -2093,8 +2093,7 @@ function removeTag(key,val){S.f[key].delete(val);syncBtn(key);render();}
 let _today = null;
 function refreshToday(){_today=new Date();_today.setHours(0,0,0,0);}
 function fmt(d){if(!d)return '';const dt=new Date(d);if(isNaN(dt))return String(d).slice(0,10);return dt.toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit',year:'numeric'});}
-function dclass(ds,stat){const ns=ns_(stat);if(!ds||ns==='Завершено'||ns==='На оцифровке')return '';const d=new Date(ds);if(isNaN(d))return '';const now=_today||new Date();const diff=(d-now)/86400000;return diff<0?'ov':diff<=7?'sn':'';}
-
+function dclass(ds,stat){if(!ds||ns_(stat)==='Завершено')return '';const d=new Date(ds);if(isNaN(d))return '';const now=_today||new Date();const diff=(d-now)/86400000;return diff<0?'ov':diff<=7?'sn':'';}
 
 // ── DEADLINE (С-1 единый хелпер + Н-6) ───────────────────
 // Дедлайн = та дата ОКОНЧАНИЯ, что реально заполнена:
@@ -2290,7 +2289,7 @@ function renderKPI(){
   const ip=all.filter(r=>ns_(r.status)==='В работе').length;
   const ns=all.filter(r=>ns_(r.status)==='Не начато').length;
   const now=new Date();now.setHours(0,0,0,0);
-  const ov=all.filter(r=>{const d=new Date(recDeadline(r));return !isNaN(d)&&d<now&&ns_(r.status)!=='Завершено'&&ns_(r.status)!=='На оцифровке';}).length;
+  const ov=all.filter(r=>{const d=new Date(recDeadline(r));return !isNaN(d)&&d<now&&ns_(r.status)!=='Завершено';}).length;
   document.getElementById('kpiG').innerHTML=`
     <div class="kpi-c"><div class="kpi-l">Штат</div><div class="kpi-v">${S.shtat.length}</div><div class="kpi-s">внутренние</div></div>
     <div class="kpi-c"><div class="kpi-l">ГПХ</div><div class="kpi-v">${S.gph.length}</div><div class="kpi-s">подрядчики</div></div>
@@ -2327,7 +2326,7 @@ function renderChartStat(){
   const data=getSrc('stat');
   const sc={};R.stat.forEach(s=>sc[s]=0);
   data.forEach(r=>{const s=ns_(r.status);sc[s]=(sc[s]||0)+1;});
-  const scol={'Не начато':'#94a3b8','В работе':'#3b82f6','На согласовании':'#f59e0b','Доработка':'#f97316','Завершено':'#22c55e','Приостановлено':'#ef4444','На оцифровке':'#7c3aed'};
+  const scol={'Не начато':'#94a3b8','В работе':'#3b82f6','На согласовании':'#f59e0b','Доработка':'#f97316','Завершено':'#22c55e','Приостановлено':'#ef4444'};
   const sl=R.stat.filter(s=>sc[s]>0);
   if(!sl.length){if(S.charts['cStat']){S.charts['cStat'].destroy();delete S.charts['cStat'];}return;}
   mkChart('cStat','doughnut',{labels:sl,datasets:[{data:sl.map(s=>sc[s]),backgroundColor:sl.map(s=>scol[s]),borderWidth:2,borderColor:'#fff'}]},{plugins:{legend:{position:'bottom',labels:{font:{size:10.5},boxWidth:11}}},cutout:'58%'});
@@ -2389,7 +2388,7 @@ function renderCharts(){
 function renderDL(){
   const now=new Date();now.setHours(0,0,0,0);
   const d30=new Date(now);d30.setDate(d30.getDate()+30);
-  const items=[...S.shtat.filter(r=>{if(r.archived)return false;const d=new Date(recDeadline(r));return !isNaN(d)&&d<=d30&&ns_(r.status)!=='Завершено'&&ns_(r.status)!=='На оцифровке';}), ...S.gph.filter(r=>{if(r.archived)return false;const d=new Date(recDeadline(r));return !isNaN(d)&&d<=d30&&ns_(r.status)!=='Завершено'&&ns_(r.status)!=='На оцифровке';})].sort((a,b)=>new Date(recDeadline(a)||'9999-12-31')-new Date(recDeadline(b)||'9999-12-31')).slice(0,10);
+  const items=[...S.shtat.filter(r=>{if(r.archived)return false;const d=new Date(recDeadline(r));return !isNaN(d)&&d<=d30&&ns_(r.status)!=='Завершено';}), ...S.gph.filter(r=>{if(r.archived)return false;const d=new Date(recDeadline(r));return !isNaN(d)&&d<=d30&&ns_(r.status)!=='Завершено';})].sort((a,b)=>new Date(recDeadline(a)||'9999-12-31')-new Date(recDeadline(b)||'9999-12-31')).slice(0,10);
   const el=document.getElementById('dlList');
   if(!items.length){el.innerHTML='<div style="color:var(--t3);font-size:13px;padding:20px;text-align:center">Нет предстоящих дедлайнов 🎉</div>';return;}
   el.innerHTML=items.map(r=>{
@@ -2983,7 +2982,7 @@ function openEmpPanel(name){
   const ip=all.filter(r=>ns_(r.status)==='В работе').length;
   const done=all.filter(r=>ns_(r.status)==='Завершено').length;
   const now=new Date();now.setHours(0,0,0,0);
-  const ov=all.filter(r=>{const d=new Date(recDeadline(r));return !isNaN(d)&&d<now&&ns_(r.status)!=='Завершено'&&ns_(r.status)!=='На оцифровке';}).length;
+  const ov=all.filter(r=>{const d=new Date(recDeadline(r));return !isNaN(d)&&d<now&&ns_(r.status)!=='Завершено';}).length;
 
   const initials=name.split(/\s+/).map(w=>w[0]||'').slice(0,2).join('').toUpperCase()||'?';
   document.getElementById('empAvatar').textContent=initials;
@@ -3059,7 +3058,7 @@ function renderMyTasks(){
   const total=all.length;
   const ip=all.filter(r=>ns_(r.status)==='В работе').length;
   const done=all.filter(r=>ns_(r.status)==='Завершено').length;
-  const ov=all.filter(r=>{const d=new Date(recDeadline(r));return !isNaN(d)&&d<now&&ns_(r.status)!=='Завершено'&&ns_(r.status)!=='На оцифровке';}).length;
+  const ov=all.filter(r=>{const d=new Date(recDeadline(r));return !isNaN(d)&&d<now&&ns_(r.status)!=='Завершено';}).length;
   const soon=all.filter(r=>{if(ns_(r.status)==='Завершено')return false;const d=new Date(recDeadline(r));if(isNaN(d))return false;const diff=(d-now)/86400000;return diff>=0&&diff<=7;}).length;
 
   // taskRow → mkTaskCard с иконкой дедлайна и кнопкой редактирования
@@ -3073,7 +3072,7 @@ function renderMyTasks(){
     });
   }
 
-  const ovRows=all.filter(r=>{const d=new Date(recDeadline(r));return !isNaN(d)&&d<now&&ns_(r.status)!=='Завершено'&&ns_(r.status)!=='На оцифровке';});
+  const ovRows=all.filter(r=>{const d=new Date(recDeadline(r));return !isNaN(d)&&d<now&&ns_(r.status)!=='Завершено';});
   const activeRows=all.filter(r=>{if(ns_(r.status)==='Завершено')return false;const d=new Date(recDeadline(r));return isNaN(d)||d>=now;});
   const doneRows=all.filter(r=>ns_(r.status)==='Завершено');
 
@@ -3645,10 +3644,10 @@ function generateReport(){
   const total=data.length;
   const done=data.filter(r=>ns_(r.status)==='Завершено').length;
   const ip=data.filter(r=>ns_(r.status)==='В работе').length;
-  const ov=data.filter(r=>{const d=new Date(recDeadline(r));return !isNaN(d)&&d<now&&ns_(r.status)!=='Завершено'&&ns_(r.status)!=='На оцифровке';}).length;
+  const ov=data.filter(r=>{const d=new Date(recDeadline(r));return !isNaN(d)&&d<now&&ns_(r.status)!=='Завершено';}).length;
 
   // Status counts
-  const STAT_COLORS={'Не начато':'#94a3b8','В работе':'#3b82f6','На согласовании':'#f59e0b','Доработка':'#f97316','Завершено':'#22c55e','Приостановлено':'#ef4444','На оцифровке':'#7c3aed'};
+  const STAT_COLORS={'Не начато':'#94a3b8','В работе':'#3b82f6','На согласовании':'#f59e0b','Доработка':'#f97316','Завершено':'#22c55e','Приостановлено':'#ef4444'};
   const sc={};
   data.forEach(r=>{const s=ns_(r.status);sc[s]=(sc[s]||0)+1;});
   const statSegs=Object.entries(sc).map(([l,v])=>({label:l,value:v,color:STAT_COLORS[l]||'#94a3b8'})).filter(x=>x.value>0);
@@ -3799,6 +3798,5 @@ async function init(){
 }
 window.addEventListener('DOMContentLoaded',init);
 </script>
-<div id="cellPopover"></div>
 </body>
 </html>
