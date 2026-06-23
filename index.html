@@ -126,7 +126,10 @@ tbody tr:last-child td{border-bottom:none}
 .tc-d{font-family:var(--mono);font-size:11.5px;white-space:nowrap;color:var(--t2)}
 .tc-d.ov{color:#dc2626;font-weight:600}
 .tc-d.sn{color:#d97706;font-weight:500}
-.tc-cm{color:var(--t2);font-size:11.5px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tc-cm{color:var(--t2);font-size:11.5px;max-width:160px;cursor:pointer;user-select:none}
+.tc-cm .cm-text{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word;overflow-wrap:anywhere;line-height:1.4}
+.tc-cm.expanded .cm-text{-webkit-line-clamp:unset;display:block;overflow:visible}
+.tc-cm:hover .cm-text{color:var(--t1)}
 .tc-act{white-space:nowrap;display:flex;gap:3px}
 tr.row-ov td{background:#fff5f5}
 tr.row-sn td{background:#fffbeb}
@@ -2142,6 +2145,14 @@ document.addEventListener('click', e=>{
   if(!td) return;
   td.classList.toggle('expanded');
 });
+// Клик по ячейке комментария разворачивает/сворачивает текст
+document.addEventListener('click', e=>{
+  const td = e.target.closest && e.target.closest('td.tc-cm');
+  if(!td) return;
+  const sp = td.querySelector('.cm-text');
+  if(!sp || sp.scrollHeight <= sp.clientHeight + 2) return;
+  td.classList.toggle('expanded');
+});
 
 function setGroupBy(v){S.groupBy=v;render();}
 function gbKey(r,key,isgph){
@@ -2179,7 +2190,7 @@ function renderShtat(){
       <td class="tc-d">${fmt(r.dateStartFact)}</td>
       <td class="${efCls}">${fmt(r.dateEndFact)}${fld==='dateEndFact'?w:''}</td>
       <td><span class="badge-btn" onclick="openStatusPicker(event,'shtat','${r.id}')" title="Сменить статус">${bdg(r.status)}</span></td>
-      <td class="tc-cm" title="${esc(r.kommentarii||'')}">${esc(r.kommentarii||'')}${cc?`<span style="color:var(--t3);font-size:10px;margin-left:4px">💬${cc}</span>`:''}</td>
+      <td class="tc-cm" title="${esc(r.kommentarii||'')}"><span class="cm-text">${esc(r.kommentarii||'')}</span>${cc?`<span style="color:var(--t3);font-size:10px;margin-left:4px">💬${cc}</span>`:''}</td>
       <td><div class="tc-act">
         ${S.showArchived
           ? `<button class="ib" onclick="unarchiveRec('shtat','${r.id}')" title="Разархивировать">🔄</button>`
@@ -2222,7 +2233,7 @@ function renderGph(){
       <td class="tc-d">${fmt(r.dateStart)}</td>
       <td class="${ec}">${fmt(r.dateEnd)}${w}</td>
       <td><span class="badge-btn" onclick="openStatusPicker(event,'gph','${r.id}')" title="Сменить статус">${bdg(r.status)}</span></td>
-      <td class="tc-cm" title="${esc(r.kommentarii||'')}">${esc(r.kommentarii||'')}${cc?`<span style="color:var(--t3);font-size:10px;margin-left:4px">💬${cc}</span>`:''}</td>
+      <td class="tc-cm" title="${esc(r.kommentarii||'')}"><span class="cm-text">${esc(r.kommentarii||'')}</span>${cc?`<span style="color:var(--t3);font-size:10px;margin-left:4px">💬${cc}</span>`:''}</td>
       <td><div class="tc-act">
         ${S.showArchived
           ? `<button class="ib" onclick="unarchiveRec('gph','${r.id}')" title="Разархивировать">🔄</button>`
