@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<!-- Учёт ОР · v6.3.2 · build 2026-06-25 -->
+<!-- Учёт ОР · v6.4.0 · build 2026-06-25 -->
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
@@ -1925,7 +1925,7 @@ function genId(){
 
 // ── STATE ──────────────────────────────────────────────────
 // Версия приложения — меняй при каждом деплое. Видна в сайдбаре и в консоли.
-const APP_VERSION='6.3.2';
+const APP_VERSION='6.4.0';
 const APP_BUILD='2026-06-25';
 const DKEYS=['fio','stat','vid','tip'];
 const DLABELS={fio:'Сотрудник',stat:'Статус',vid:'Вид работы',tip:'Тип ОР'};
@@ -2975,6 +2975,168 @@ function doImportExcel(inp){
     inp.value='';
   };rd.readAsArrayBuffer(f);
 }
+// ── EMPLOYEE PANEL (профиль сотрудника) ────────────────────
+function openEmpPanel(name){
+  if(!name||name==='—') return;
+  const shtat=S.shtat.filter(r=>r.fio===name&&!r.archived);
+  const gphDev=S.gph.filter(r=>r.fioRazrab===name&&!r.archived);
+  const gphCur=S.gph.filter(r=>r.fioKurator===name&&!r.archived);
+  const all=[...shtat,...gphDev];
+  const total=all.length;
+  const ip=all.filter(r=>ns_(r.status)==='В работе').length;
+  const done=all.filter(r=>ns_(r.status)==='Завершено').length;
+  const now=new Date();now.setHours(0,0,0,0);
+  const ov=all.filter(r=>{const d=new Date(recDeadline(r));return !isNaN(d)&&d<now&&ns_(r.status)!=='Завершено';}).length;
+
+  const initials=name.split(/\s+/).map(w=>w[0]||'').slice(0,2).join('').toUpperCase()||'?';
+  document.getElementById('empAvatar').textContent=initials;
+  document.getElementById('empName').textContent=name;
+  document.getElementById('empSub').textContent=`${total} задач · Штат: ${shtat.length}, ГПХ: ${gphDev.length+gphCur.length}`;
+
+  let body=`<div class="emp-kpi">
+    <div class="emp-kpi-c"><div class="emp-kpi-l">Всего</div><div class="emp-kpi-v">${total}</div></div>
+    <div class="emp-kpi-c blue"><div class="emp-kpi-l">В работе</div><div class="emp-kpi-v">${ip}</div></div>
+    <div class="emp-kpi-c green"><div class="emp-kpi-l">Завершено</div><div class="emp-kpi-v">${done}</div></div>
+    <div class="emp-kpi-c red"><div class="emp-kpi-l">Просрочено</div><div class="emp-kpi-v">${ov}</div></div>
+  </div>`;
+
+  if(shtat.length) body+=`<div class="emp-sec"><div class="emp-sec-hd">Штат <span class="emp-sec-cnt">${shtat.length}</span></div>${shtat.map(r=>mkTaskCard(r,false)).join('')}</div>`;
+  if(gphDev.length) body+=`<div class="emp-sec"><div class="emp-sec-hd">ГПХ — разработчик <span class="emp-sec-cnt">${gphDev.length}</span></div>${gphDev.map(r=>mkTaskCard(r,true)).join('')}</div>`;
+  if(gphCur.length) body+=`<div class="emp-sec"><div class="emp-sec-hd">ГПХ — куратор <span class="emp-sec-cnt">${gphCur.length}</span></div>${gphCur.map(r=>mkTaskCard(r,true)).join('')}</div>`;
+  if(!total&&!gphCur.length) body+=`<div class="emp-empty">Нет записей для этого сотрудника</div>`;
+
+  document.getElementById('empBody').innerHTML=body;
+  document.getElementById('empOverlay').classList.add('show');
+  document.getElementById('empDrawer').classList.add('open');
+}
+
+function closeEmpPanel(){
+  document.getElementById('empOverlay').classList.remove('show');
+  document.getElementById('empDrawer').classList.remove('open');
+}
+
+// ── SHARED TASK CARD ───────────────────────────────────────
+// Используется в openEmpPanel (панель сотрудника) и renderMyTasks (мои задачи)
+// opts.showEdit   — показывать кнопку ✏️ (по умолчанию false)
+// opts.showDeadlineIcon — показывать 📅 перед датой (по умолчанию false)
+function mkTaskCard(r, isgph, opts={}){
+  const dk=isgph?r.dateEnd:r.dateEndPlan;
+  const dc=dclass(dk,r.status);
+  const typeStr=[r.vidRaboty?nv(r.vidRaboty):'',r.tipOR].filter(Boolean).join(' · ');
+  const cc=(r.comments||[]).length;
+  const dateHtml=dk?`<span style="font-family:var(--mono);font-size:10.5px">${opts.showDeadlineIcon?'📅 ':''}${fmt(dk)}</span>`:'';
+  const editBtn=opts.showEdit
+    ?`<button class="ib" onclick="openModal('${isgph?'gph':'shtat'}','${r.id}')" title="Редактировать" style="flex-shrink:0">✏️</button>`:'';
+  return `<div class="emp-row ${dc}" style="margin-bottom:6px">
+    <div class="emp-row-body">
+      <div class="emp-row-title">${esc(r.navOR||'—')}</div>
+      <div class="emp-row-meta">
+        ${bdg(r.status)}
+        ${typeStr?`<span>${esc(typeStr)}</span>`:''}
+        ${r.predpriyatie?`<span>${esc(r.predpriyatie)}</span>`:''}
+        ${dateHtml}
+        ${cc?`<span>💬 ${cc}</span>`:''}
+      </div>
+    </div>
+    ${editBtn}
+  </div>`;
+}
+
+// ── MY TASKS (Мои задачи) ──────────────────────────────────
+function renderMyTasks(){
+  const wrap=document.getElementById('myWrap');
+  if(!wrap)return;
+  if(!S.user||S.user==='__mgr__'){
+    wrap.innerHTML=`<div class="empty" style="padding:60px 20px">
+      <div class="ei">👤</div>
+      <div class="et">Выберите пользователя</div>
+      <div class="ed">В боковом меню выберите своё имя, чтобы видеть личные задачи</div>
+    </div>`;
+    return;
+  }
+  const shtat=S.shtat.filter(r=>r.fio===S.user&&!r.archived);
+  const gphDev=S.gph.filter(r=>r.fioRazrab===S.user&&!r.archived);
+  const gphCur=S.gph.filter(r=>r.fioKurator===S.user&&!r.archived);
+  const all=[...shtat,...gphDev];
+  const now=new Date();now.setHours(0,0,0,0);
+  const total=all.length;
+  const ip=all.filter(r=>ns_(r.status)==='В работе').length;
+  const done=all.filter(r=>ns_(r.status)==='Завершено').length;
+  const ov=all.filter(r=>{const d=new Date(recDeadline(r));return !isNaN(d)&&d<now&&ns_(r.status)!=='Завершено';}).length;
+  const soon=all.filter(r=>{if(ns_(r.status)==='Завершено')return false;const d=new Date(recDeadline(r));if(isNaN(d))return false;const diff=(d-now)/86400000;return diff>=0&&diff<=7;}).length;
+
+  function taskRow(r,isgph){ return mkTaskCard(r,isgph,{showEdit:true,showDeadlineIcon:true}); }
+
+  function sortByDeadline(arr){
+    return [...arr].sort((a,b)=>{
+      const da=new Date(recDeadline(a)||'9999-12-31');
+      const db=new Date(recDeadline(b)||'9999-12-31');
+      return da-db;
+    });
+  }
+
+  const ovRows=all.filter(r=>{const d=new Date(recDeadline(r));return !isNaN(d)&&d<now&&ns_(r.status)!=='Завершено';});
+  const activeRows=all.filter(r=>{if(ns_(r.status)==='Завершено')return false;const d=new Date(recDeadline(r));return isNaN(d)||d>=now;});
+  const doneRows=all.filter(r=>ns_(r.status)==='Завершено');
+
+  function secHtml(icon,title,rows,color,key){
+    if(!rows.length)return '';
+    const open=_mySec[key]!==false;
+    return `<div class="my-sec${open?'':' collapsed'}" data-sec="${key}">
+      <div class="my-sec-hd" style="border-left-color:${color}" onclick="toggleSec('${key}')">
+        ${icon} ${title}
+        <span class="my-sec-cnt">${rows.length}</span>
+        <span class="my-sec-arr" title="${open?'Свернуть':'Развернуть'}">▾</span>
+      </div>
+      <div class="my-sec-body">
+        ${sortByDeadline(rows).map(r=>taskRow(r,S.gph.includes(r))).join('')}
+      </div>
+    </div>`;
+  }
+
+  const curOpen=_mySec.cur!==false;
+  const curSec=gphCur.length?`<div class="my-sec${curOpen?'':' collapsed'}" data-sec="cur">
+    <div class="my-sec-hd" style="border-left-color:#f59e0b" onclick="toggleSec('cur')">
+      🎯 Курирую (ГПХ)
+      <span class="my-sec-cnt">${gphCur.length}</span>
+      <span class="my-sec-arr" title="${curOpen?'Свернуть':'Развернуть'}">▾</span>
+    </div>
+    <div class="my-sec-body">
+      ${sortByDeadline(gphCur).map(r=>taskRow(r,true)).join('')}
+    </div>
+  </div>`:'';
+
+  wrap.innerHTML=`
+    <div class="my-kpi">
+      <div class="kpi-c"><div class="kpi-l">Всего задач</div><div class="kpi-v">${total}</div><div class="kpi-s">Штат: ${shtat.length} · ГПХ: ${gphDev.length}</div></div>
+      <div class="kpi-c blue"><div class="kpi-l">В работе</div><div class="kpi-v">${ip}</div></div>
+      <div class="kpi-c ${ov?'red':''}"><div class="kpi-l">Просрочено</div><div class="kpi-v">${ov}</div></div>
+      <div class="kpi-c"><div class="kpi-l">Дедлайн ≤ 7 дн.</div><div class="kpi-v">${soon}</div><div class="kpi-s">требуют внимания</div></div>
+      <div class="kpi-c green"><div class="kpi-l">Завершено</div><div class="kpi-v">${done}</div><div class="kpi-s">${total?Math.round(done/total*100):0}%</div></div>
+    </div>
+    ${total||gphCur.length?`
+      ${secHtml('⚠️','Просрочено',ovRows,'#ef4444','ov')}
+      ${secHtml('📋','Активные задачи',activeRows,'#3b82f6','active')}
+      ${curSec}
+      ${secHtml('✅','Завершённые',doneRows,'#22c55e','done')}
+    `:`<div class="empty" style="padding:48px 20px">
+      <div class="ei">🎉</div>
+      <div class="et">Задач нет</div>
+      <div class="ed">Назначьте себя на записи в разделах Штат или ГПХ</div>
+    </div>`}`;
+}
+
+function toggleSec(key){
+  _mySec[key]=!_mySec[key];
+  try{localStorage.setItem('or_my_sec',JSON.stringify(_mySec));}catch(e){}
+  const el=document.querySelector(`.my-sec[data-sec="${key}"]`);
+  if(el){
+    el.classList.toggle('collapsed',!_mySec[key]);
+    const arr=el.querySelector('.my-sec-arr');
+    if(arr)arr.title=_mySec[key]?'Свернуть':'Развернуть';
+  }
+}
+
 // ── E-LEARNING: импорт Excel (Н-3) ─────────────────────────
 // Форвард-филл №/профессии/ЦА (merged-cell паттерн), дедуп по kodKursa,
 // merge ручных полей (proshli/status/predpriyatie/divizion) из существующей записи.
