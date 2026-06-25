@@ -261,8 +261,8 @@ tr.row-sn td{background:#fffbeb}
 .el-prosh:hover{background:#fef3c7;border-bottom-color:var(--acc)}
 .el-prosh-inp{width:60px;padding:3px 5px;border:1px solid var(--acc);border-radius:4px;font-family:var(--font);font-size:12.5px;text-align:right;outline:none}
 .el-pct{display:inline-flex;align-items:center;gap:6px;min-width:90px}
-.el-pct-bar{flex:1;height:6px;background:#eef2f7;border-radius:3px;overflow:hidden;min-width:44px;width:80px}
-.el-pct-fill{height:100%;border-radius:3px;transition:width .3s}
+.el-pct-bar{flex:1;height:6px;background:#eef2f7;border-radius:3px;overflow:hidden;min-width:60px}
+.el-pct-fill{height:100%;border-radius:3px}
 .el-pct-fill.hi{background:#16a34a}.el-pct-fill.mid{background:#e8a020}.el-pct-fill.lo{background:#dc2626}
 .el-pct-t{font-size:11px;color:var(--t2);font-variant-numeric:tabular-nums;min-width:30px;text-align:right}
 .el-lnk{color:var(--acc-d);text-decoration:none;font-size:14px}
@@ -3050,13 +3050,18 @@ function elPct(rec){
   if(!ca) return null;
   return Math.round(pr/ca*100);
 }
+function elPctHtml(pct,extraStyle){
+  if(pct===null) return '';
+  const w=Math.min(pct,100);
+  const hue=Math.min(Math.round(w*1.2),120);
+  const color=`hsl(${hue},70%,38%)`;
+  const bar=`flex:1;height:6px;border-radius:3px;min-width:60px;background:linear-gradient(to right,${color} ${w}%,#eef2f7 ${w}%)`;
+  return `<span data-pct="1" style="display:inline-flex;align-items:center;gap:6px;min-width:90px;vertical-align:middle${extraStyle?';'+extraStyle:''}"><span style="${bar}"></span><span style="font-size:11px;color:${color};font-variant-numeric:tabular-nums;min-width:30px;text-align:right">${pct}%</span></span>`;
+}
 function elPctCell(rec){
   const p=elPct(rec);
   if(p===null) return '<span style="color:var(--t3);font-size:11px">—</span>';
-  const w=Math.min(p,100);
-  const hue=Math.round(w*1.2); // 0→red(0), 100→green(120), clamp at 120
-  const color=`hsl(${Math.min(hue,120)},70%,38%)`;
-  return `<span class="el-pct"><span class="el-pct-bar"><span class="el-pct-fill" style="width:${w}%;background:${color}"></span></span><span class="el-pct-t" style="color:${color}">${p}%</span></span>`;
+  return elPctHtml(p,'');
 }
 
 function elFiltered(){
@@ -3185,7 +3190,7 @@ function elGroupBody(rows){
     const collapsed=S.elCollapsed[k];
     const ghHue=pct!==null?Math.min(Math.round(pct*1.2),120):0;
     const ghColor=`hsl(${ghHue},70%,38%)`;
-    const pctTxt=pct!==null?`<span class="el-pct" style="display:inline-flex;width:120px;vertical-align:middle"><span class="el-pct-bar"><span class="el-pct-fill" style="width:${Math.min(pct,100)}%;background:${ghColor}"></span></span><span class="el-pct-t" style="color:${ghColor}">${pct}%</span></span>`:'';
+    const pctTxt=elPctHtml(pct,'width:120px');
     html+=`<tr class="el-gh${collapsed?' collapsed':''}" onclick="elToggleGroup(this.dataset.k)" data-k="${esc(k)}">
       <td colspan="11">
         <span class="el-gh-caret">▾</span>
@@ -3249,12 +3254,13 @@ function elEditProsh(id,span){
           const pct=ca?Math.round(sumPr/ca*100):null;
           const hue=pct!==null?Math.min(Math.round(pct*1.2),120):0;
           const color=`hsl(${hue},70%,38%)`;
-          const pctTxt=pct!==null?`<span class="el-pct" style="display:inline-flex;width:120px;vertical-align:middle"><span class="el-pct-bar"><span class="el-pct-fill" style="width:${Math.min(pct,100)}%;background:${color}"></span></span><span class="el-pct-t" style="color:${color}">${pct}%</span></span>`:'';
+          const pctTxt=elPctHtml(pct,'width:120px');
           const ghSum=ghRow.querySelector('.el-gh-sum');
           if(ghSum) ghSum.textContent=`ЦА ${ca||'—'} · разрядов: ${items.length} · прошли: ${sumPr}`;
-          const oldPct=ghRow.querySelector('.el-pct');
-          if(oldPct) oldPct.outerHTML=pctTxt;
-          else if(pctTxt){const td=ghRow.querySelector('td');if(td)td.insertAdjacentHTML('beforeend',pctTxt);}
+          const oldPctSpan=ghRow.querySelector('[data-pct]');
+          const td=ghRow.querySelector('td');
+          if(oldPctSpan){ oldPctSpan.outerHTML=pctTxt||''; }
+          else if(pctTxt && td){ td.insertAdjacentHTML('beforeend',pctTxt); }
         }
       }else{
         renderElearning(); // fallback если плоский вид
