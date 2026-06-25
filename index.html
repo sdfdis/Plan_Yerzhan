@@ -1537,7 +1537,7 @@ function markSaved(){
   S.lastSaved = new Date();
   S.justSaved = true;
   localStorage.setItem('or_last_saved', S.lastSaved.toISOString());
-  if(S.dirtyIds){ S.dirtyIds.shtat.clear(); S.dirtyIds.gph.clear(); S.dirtyIds.content.clear(); }
+  if(S.dirtyIds){ S.dirtyIds.shtat.clear(); S.dirtyIds.gph.clear(); S.dirtyIds.elearning.clear(); }
   countdownVal = AUTO_SAVE_SEC;
   updateSaveUI();
   setTimeout(()=>{ S.justSaved = false; updateSaveUI(); }, 3000);
@@ -3252,8 +3252,6 @@ function elEditProsh(id,span){
           const ca=Number(items[0]?items[0].tselevayaAuditoriya:0)||0;
           const sumPr=items.reduce((a,r)=>a+(Number(r.proshli)||0),0);
           const pct=ca?Math.round(sumPr/ca*100):null;
-          const hue=pct!==null?Math.min(Math.round(pct*1.2),120):0;
-          const color=`hsl(${hue},70%,38%)`;
           const pctTxt=elPctHtml(pct,'width:120px');
           const ghSum=ghRow.querySelector('.el-gh-sum');
           if(ghSum) ghSum.textContent=`ЦА ${ca||'—'} · разрядов: ${items.length} · прошли: ${sumPr}`;
@@ -3262,6 +3260,13 @@ function elEditProsh(id,span){
           if(oldPctSpan){ oldPctSpan.outerHTML=pctTxt||''; }
           else if(pctTxt && td){ td.insertAdjacentHTML('beforeend',pctTxt); }
         }
+        // обновить KPI «ср. прохождение» (по текущему фильтру)
+        const fRows=elFiltered();
+        const kCa=fRows.reduce((a,r)=>a+(Number(r.tselevayaAuditoriya)||0),0);
+        const kPr=fRows.reduce((a,r)=>a+(Number(r.proshli)||0),0);
+        const kAvg=kCa?Math.round(kPr/kCa*100):0;
+        const kpiAcc=document.querySelector('#elWrap .el-kc.acc .el-kc-v');
+        if(kpiAcc) kpiAcc.textContent=kAvg+'%';
       }else{
         renderElearning(); // fallback если плоский вид
       }
