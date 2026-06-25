@@ -1,7 +1,11 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
+<!-- Учёт ОР · v6.3.0 · build 2026-06-25 -->
 <meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Учёт ОР — ERG CU</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -155,6 +159,9 @@ tr.row-sn td{background:#fffbeb}
 
 /* DASHBOARD */
 .dash-wrap{padding:20px}
+.dash-seg{display:inline-flex;background:#f1f5f9;border-radius:8px;padding:3px;gap:2px;margin-bottom:18px}
+.dash-seg-btn{padding:7px 16px;border:none;background:transparent;border-radius:6px;font-family:var(--font);font-size:13px;font-weight:500;color:var(--t3);cursor:pointer;transition:all .15s;white-space:nowrap}
+.dash-seg-btn.active{background:var(--white);color:var(--t1);box-shadow:0 1px 3px rgba(0,0,0,.1);font-weight:600}
 .kpi-g{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:20px}
 .kpi-c{background:var(--white);border-radius:var(--r);padding:16px 18px;box-shadow:var(--sh);border:1px solid var(--bd);min-width:0}
 .kpi-l{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:var(--t3);margin-bottom:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -163,6 +170,7 @@ tr.row-sn td{background:#fffbeb}
 .kpi-c.green .kpi-v{color:#16a34a}
 .kpi-c.red .kpi-v{color:#dc2626}
 .kpi-c.blue .kpi-v{color:#2563eb}
+.kpi-c.acc .kpi-v{color:#b45309}
 .ch-g{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .ch-c{background:var(--white);border-radius:var(--r);padding:18px;border:1px solid var(--bd);box-shadow:var(--sh);min-width:0}
 .ch-full{grid-column:1/-1}
@@ -784,6 +792,7 @@ tr.row-arc .tc-name,tr.row-arc .tc-m,tr.row-arc .tc-d,tr.row-arc .tc-cm{color:va
     <button class="sb-btn" onclick="showDBSetup()">🔌 База данных</button>
     <button class="sb-btn" onclick="exportExcel()">📊 Скачать Excel</button>
     <button class="sb-btn" onclick="openReportSettings()">📄 Отчёт PDF</button>
+    <div id="appVerLabel" style="text-align:center;font-size:10px;color:rgba(255,255,255,.3);margin-top:8px;font-family:var(--mono);letter-spacing:.3px;cursor:default" title="Версия приложения">v—</div>
   </div>
 </aside>
 
@@ -899,6 +908,12 @@ tr.row-arc .tc-name,tr.row-arc .tc-m,tr.row-arc .tc-d,tr.row-arc .tc-cm{color:va
 
     <div class="tab-p" id="tab-dash">
       <div class="dash-wrap">
+        <div class="dash-seg" id="dashSeg">
+          <button class="dash-seg-btn active" onclick="setDashView('staff')">👥 Штат + ГПХ</button>
+          <button class="dash-seg-btn" onclick="setDashView('courses')">📚 Курсы</button>
+        </div>
+
+        <div id="dashStaff">
         <div class="kpi-g" id="kpiG"></div>
         <div class="ch-g">
           <!-- Row 1: Статусы + Дедлайны -->
@@ -930,6 +945,26 @@ tr.row-arc .tc-name,tr.row-arc .tc-m,tr.row-arc .tc-d,tr.row-arc .tc-cm{color:va
 
           <!-- Row 3: Виды работ — full width -->
           <div class="ch-c ch-full"><div class="ch-t">Виды работ (все)</div><div class="ch-w"><canvas id="cVid"></canvas></div></div>
+        </div>
+        </div>
+
+        <div id="dashCourses" style="display:none">
+          <div class="kpi-g" id="kpiGEl"></div>
+          <div class="ch-g">
+            <div class="ch-c"><div class="ch-t">Статусы курсов</div><div class="ch-w"><canvas id="cElStat"></canvas></div></div>
+            <div class="ch-c"><div class="ch-t">Язык курсов</div><div class="ch-w"><canvas id="cElLang"></canvas></div></div>
+            <div class="ch-c ch-full">
+              <div class="ch-hd">
+                <span class="ch-t">Прохождение по профессиям</span>
+                <div class="ch-tog" id="tog-elprof">
+                  <button class="tog-btn active" onclick="setElChSrc('pct',this)">% прохождения</button>
+                  <button class="tog-btn" onclick="setElChSrc('ca',this)">по ЦА</button>
+                </div>
+              </div>
+              <div id="elProfWrap"><canvas id="cElProf"></canvas></div>
+            </div>
+            <div class="ch-c ch-full"><div class="ch-t">Курсы по предприятиям</div><div class="ch-w"><canvas id="cElPred"></canvas></div></div>
+          </div>
         </div>
       </div>
     </div>
@@ -1142,12 +1177,13 @@ tr.row-arc .tc-name,tr.row-arc .tc-m,tr.row-arc .tc-d,tr.row-arc .tc-cm{color:va
       <div class="rpt-f">
         <div class="rpt-lbl">Источник данных</div>
         <div class="rpt-radios" id="rptSrcRadios">
-          <div class="rpt-radio active" data-val="all" onclick="rptSetSrc(this)">Все</div>
+          <div class="rpt-radio active" data-val="all" onclick="rptSetSrc(this)">Штат + ГПХ</div>
           <div class="rpt-radio" data-val="shtat" onclick="rptSetSrc(this)">Штат</div>
           <div class="rpt-radio" data-val="gph" onclick="rptSetSrc(this)">ГПХ</div>
+          <div class="rpt-radio" data-val="courses" onclick="rptSetSrc(this)">📚 Курсы</div>
         </div>
       </div>
-      <div class="rpt-f">
+      <div class="rpt-f" id="rptPerBlock">
         <div class="rpt-lbl">Период (по дате окончания)</div>
         <div class="rpt-quick">
           <button class="rpt-qbtn" onclick="rptSetPeriod('year')">Текущий год</button>
@@ -1161,7 +1197,7 @@ tr.row-arc .tc-name,tr.row-arc .tc-m,tr.row-arc .tc-d,tr.row-arc .tc-cm{color:va
           <input type="date" class="rpt-date-inp" id="rptTo" placeholder="До">
         </div>
       </div>
-      <div class="rpt-f">
+      <div class="rpt-f" id="rptEmpBlock">
         <div class="rpt-lbl">Сотрудники</div>
         <div class="rpt-radios" id="rptEmpRadios">
           <div class="rpt-radio active" data-val="all" onclick="rptSetEmpMode(this)">Все</div>
@@ -1173,7 +1209,7 @@ tr.row-arc .tc-name,tr.row-arc .tc-m,tr.row-arc .tc-d,tr.row-arc .tc-cm{color:va
         <div class="rpt-lbl">Включить в отчёт</div>
         <div class="rpt-checks">
           <label class="rpt-check"><input type="checkbox" id="rptChkKpi" checked> KPI — сводка по статусам</label>
-          <label class="rpt-check"><input type="checkbox" id="rptChkCharts" checked> Диаграммы (статусы, нагрузка, виды работ)</label>
+          <label class="rpt-check"><input type="checkbox" id="rptChkCharts" checked> <span id="rptChartsLbl">Диаграммы (статусы, нагрузка, виды работ)</span></label>
         </div>
       </div>
     </div>
@@ -1889,12 +1925,15 @@ function genId(){
 }
 
 // ── STATE ──────────────────────────────────────────────────
+// Версия приложения — меняй при каждом деплое. Видна в сайдбаре и в консоли.
+const APP_VERSION='6.3.0';
+const APP_BUILD='2026-06-25';
 const DKEYS=['fio','stat','vid','tip'];
 const DLABELS={fio:'Сотрудник',stat:'Статус',vid:'Вид работы',tip:'Тип ОР'};
 let S={shtat:[],gph:[],elearning:[],user:'',tab:'shtat',editId:null,moType:'shtat',
   f:{fio:new Set(),stat:new Set(),vid:new Set(),tip:new Set(),q:'',dateFrom:'',dateTo:''},
   elf:{q:'',pred:'',div:'',status:'',razryad:''},
-  chSrc:{stat:'shtat',pers:'shtat'},
+  chSrc:{stat:'shtat',pers:'shtat'}, dashView:'staff', chSrcEl:{prof:'pct'},
   charts:{}, dirty:false, saving:false, lastSaved:null, justSaved:false, groupBy:'', showArchived:false,
   elView:'list', elCollapsed:{}, elEditing:null};
 
@@ -2341,7 +2380,119 @@ function renderGph(){
 function emptyHtml(){return `<div class="empty"><div class="ei">📭</div><div class="et">Нет записей</div><div class="ed">Добавьте запись или измените фильтры</div></div>`;}
 
 // ── DASHBOARD ──────────────────────────────────────────────
-function renderDash(){renderKPI();renderDL();requestAnimationFrame(()=>renderCharts());}
+function renderDash(){
+  if(S.dashView==='courses'){ renderDashCourses(); }
+  else { renderKPI();renderDL();requestAnimationFrame(()=>renderCharts()); }
+}
+function setDashView(v){
+  S.dashView=v;
+  document.querySelectorAll('#dashSeg .dash-seg-btn').forEach((b,i)=>b.classList.toggle('active',(i===0)===(v==='staff')));
+  document.getElementById('dashStaff').style.display = v==='staff'?'':'none';
+  document.getElementById('dashCourses').style.display = v==='courses'?'':'none';
+  renderDash();
+}
+function setElChSrc(mode,btn){
+  S.chSrcEl.prof=mode;
+  btn.closest('.ch-tog').querySelectorAll('.tog-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  requestAnimationFrame(()=>renderElProfChart());
+}
+
+// ── DASHBOARD: аналитика по курсам ─────────────────────────
+function renderDashCourses(){
+  const all=S.elearning||[];
+  const profSet=new Set(all.map(r=>r.professiya||'—'));
+  const active=all.filter(r=>(r.status||'Активен')==='Активен').length;
+  const sumCa=all.reduce((a,r)=>a+(Number(r.tselevayaAuditoriya)||0),0);
+  const sumPr=all.reduce((a,r)=>a+(Number(r.proshli)||0),0);
+  const avg=sumCa?Math.round(sumPr/sumCa*100):0;
+  const kpi=document.getElementById('kpiGEl');
+  if(kpi) kpi.innerHTML=`
+    <div class="kpi-c"><div class="kpi-l">Курсов</div><div class="kpi-v">${all.length}</div><div class="kpi-s">всего</div></div>
+    <div class="kpi-c"><div class="kpi-l">Профессий</div><div class="kpi-v">${profSet.size}</div><div class="kpi-s">направлений</div></div>
+    <div class="kpi-c green"><div class="kpi-l">Активных</div><div class="kpi-v">${active}</div><div class="kpi-s">${all.length?Math.round(active/all.length*100):0}% от всех</div></div>
+    <div class="kpi-c"><div class="kpi-l">ЦА суммарно</div><div class="kpi-v">${sumCa}</div><div class="kpi-s">человек-курсов</div></div>
+    <div class="kpi-c blue"><div class="kpi-l">Прошли</div><div class="kpi-v">${sumPr}</div><div class="kpi-s">завершили</div></div>
+    <div class="kpi-c acc"><div class="kpi-l">Ср. прохождение</div><div class="kpi-v">${avg}%</div><div class="kpi-s">ЦА покрыта</div></div>`;
+  requestAnimationFrame(()=>renderElCharts());
+}
+function renderElCharts(){
+  renderElStatChart();
+  renderElLangChart();
+  renderElProfChart();
+  renderElPredChart();
+}
+function renderElStatChart(){
+  const all=S.elearning||[];
+  const col={'Активен':'#22c55e','В разработке':'#3b82f6','Архив':'#94a3b8'};
+  const sc={};EL_STATUSES.forEach(s=>sc[s]=0);
+  all.forEach(r=>{const s=r.status||'Активен';sc[s]=(sc[s]||0)+1;});
+  const sl=EL_STATUSES.filter(s=>sc[s]>0);
+  if(!sl.length){if(S.charts['cElStat']){S.charts['cElStat'].destroy();delete S.charts['cElStat'];}return;}
+  mkChart('cElStat','doughnut',{labels:sl,datasets:[{data:sl.map(s=>sc[s]),backgroundColor:sl.map(s=>col[s]),borderWidth:2,borderColor:'#fff'}]},{plugins:{legend:{position:'bottom',labels:{font:{size:10.5},boxWidth:11}}},cutout:'58%'});
+}
+function renderElLangChart(){
+  const all=S.elearning||[];
+  const lc={RU:0,KZ:0};
+  all.forEach(r=>{const l=elDetectLang(r);lc[l]=(lc[l]||0)+1;});
+  const ll=['RU','KZ'].filter(l=>lc[l]>0);
+  if(!ll.length){if(S.charts['cElLang']){S.charts['cElLang'].destroy();delete S.charts['cElLang'];}return;}
+  mkChart('cElLang','doughnut',{labels:ll.map(l=>l==='RU'?'Русский':'Қазақша'),datasets:[{data:ll.map(l=>lc[l]),backgroundColor:ll.map(l=>l==='RU'?'#1d4ed8':'#15803d'),borderWidth:2,borderColor:'#fff'}]},{plugins:{legend:{position:'bottom',labels:{font:{size:10.5},boxWidth:11}}},cutout:'58%'});
+}
+function renderElProfChart(){
+  try{
+    const all=S.elearning||[];
+    const mode=S.chSrcEl.prof; // 'pct' | 'ca'
+    const groups={};
+    all.forEach(r=>{const k=r.professiya||'—';(groups[k]=groups[k]||{ca:0,pr:0}); });
+    // ЦА берём из первой записи профессии (одинакова по разрядам), прошли — сумма
+    Object.keys(groups).forEach(k=>{
+      const items=all.filter(r=>(r.professiya||'—')===k);
+      groups[k].ca=Number(items[0]?.tselevayaAuditoriya||0)||0;
+      groups[k].pr=items.reduce((a,r)=>a+(Number(r.proshli)||0),0);
+    });
+    let entries=Object.entries(groups);
+    const wrap=document.getElementById('elProfWrap');
+    if(!entries.length){
+      if(S.charts['cElProf']){S.charts['cElProf'].destroy();delete S.charts['cElProf'];}
+      if(wrap) wrap.innerHTML='<div style="height:60px;display:flex;align-items:center;justify-content:center;color:var(--t3);font-size:13px">Нет данных</div>';
+      return;
+    }
+    let labels,vals,colors,label,fmtTip;
+    if(mode==='ca'){
+      entries.sort((a,b)=>b[1].ca-a[1].ca);
+      labels=entries.map(e=>e[0]); vals=entries.map(e=>e[1].ca);
+      colors=labels.map(()=>'rgba(59,130,246,.75)'); label='ЦА';
+      fmtTip=ctx=>`ЦА: ${ctx.parsed.x}`;
+    }else{
+      entries=entries.map(([k,v])=>[k,v,v.ca?Math.round(v.pr/v.ca*100):0]);
+      entries.sort((a,b)=>b[2]-a[2]);
+      labels=entries.map(e=>e[0]); vals=entries.map(e=>e[2]);
+      colors=vals.map(p=>{const hue=Math.min(Math.round(Math.min(p,100)*1.2),120);return `hsl(${hue},70%,45%)`;});
+      label='% прохождения';
+      fmtTip=ctx=>{const e=entries[ctx.dataIndex];return `${ctx.parsed.x}% (${e[1].pr} из ${e[1].ca})`;};
+    }
+    const barH=Math.max(120,labels.length*38);
+    if(wrap){wrap.style.height=barH+'px';wrap.innerHTML='<canvas id="cElProf"></canvas>';}
+    mkChart('cElProf','bar',
+      {labels,datasets:[{label,data:vals,backgroundColor:colors,borderRadius:4,borderSkipped:false}]},
+      {indexAxis:'y',
+       plugins:{legend:{display:false},tooltip:{callbacks:{label:fmtTip}}},
+       scales:{
+         x:{beginAtZero:true,max:mode==='pct'?100:undefined,grid:{color:'rgba(0,0,0,.05)'},ticks:{font:{size:11},color:'#6b7280',callback:v=>mode==='pct'?v+'%':v},border:{display:false}},
+         y:{grid:{display:false},ticks:{font:{size:11.5},color:'#374151',padding:6},border:{display:false}}
+       }}
+    );
+  }catch(e){console.error('renderElProfChart',e);}
+}
+function renderElPredChart(){
+  const all=S.elearning||[];
+  const pc={};
+  all.forEach(r=>{const p=(r.predpriyatie||'').trim()||'Не указано';pc[p]=(pc[p]||0)+1;});
+  const pl=Object.keys(pc).sort((a,b)=>pc[b]-pc[a]);
+  if(!pl.length){if(S.charts['cElPred']){S.charts['cElPred'].destroy();delete S.charts['cElPred'];}return;}
+  mkChart('cElPred','bar',{labels:pl,datasets:[{label:'Курсов',data:pl.map(l=>pc[l]),backgroundColor:['#e8a020','#3b82f6','#22c55e','#8b5cf6','#f97316','#ef4444'].slice(0,pl.length),borderRadius:4}]},{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,ticks:{stepSize:1,font:{size:10}}},y:{grid:{display:false},ticks:{font:{size:10.5}}}}});
+}
 function renderKPI(){
   const all=[...S.shtat.filter(r=>!r.archived),...S.gph.filter(r=>!r.archived)];
   const done=all.filter(r=>ns_(r.status)==='Завершено').length;
@@ -2925,8 +3076,14 @@ function exportExcel(){
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(sh),'Штат');
   const gh=[['№','ФИО разработчика','ФИО куратора','Вид работы','Тип ОР','Наименование ОР','Предприятие / Заказчик','Дата начала','Дата окончания','Статус','Комментарии'],...srcG.map((r,i)=>[i+1,r.fioRazrab,r.fioKurator,nv(r.vidRaboty),r.tipOR,r.navOR,r.predpriyatie,r.dateStart,r.dateEnd,ns_(r.status),r.kommentarii])];
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(gh),'ГПХ');
+  // Лист «Курсы» (e-learning) — отдельно от Штат/ГПХ
+  const elSrc=S.elearning||[];
+  const elPctOf=r=>{const ca=Number(r.tselevayaAuditoriya)||0;return ca?Math.round((Number(r.proshli)||0)/ca*100)+'%':'';};
+  const el=[['№','Код курса','Профессия','Разряд','Язык','Предприятие','Дивизион','ЦА','Прошли','% прохождения','Ссылка','Статус','Обновлено','Комментарии'],
+    ...elSrc.map((r,i)=>[i+1,r.kodKursa,r.professiya,r.razryad,elDetectLang(r),r.predpriyatie,r.divizion,r.tselevayaAuditoriya,r.proshli,elPctOf(r),r.ssylkaRu||r.ssylkaKz||'',r.status||'Активен',r.dataObnovleniyaStat||'',r.kommentarii])];
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(el),'Курсы');
   XLSX.writeFile(wb,`ОтчётОР_${new Date().toLocaleDateString('ru-RU').replace(/\./g,'-')}.xlsx`);
-  notify(`Excel скачан: ${srcS.length+srcG.length} записей (${S.showArchived?'архив':'актуальные'}, с учётом фильтров) ✓`,'success');
+  notify(`Excel скачан: Штат ${srcS.length}, ГПХ ${srcG.length}, Курсы ${elSrc.length} ✓`,'success');
 }
 function clearAll(){ showClearConfirm(); }
 
@@ -3601,6 +3758,12 @@ function openReportSettings(){
   // Reset source radios
   document.querySelectorAll('#rptSrcRadios .rpt-radio').forEach(r=>r.classList.toggle('active',r.dataset.val==='all'));
   document.querySelectorAll('#rptEmpRadios .rpt-radio').forEach(r=>r.classList.toggle('active',r.dataset.val==='all'));
+  // сброс видимости блоков (могли быть скрыты режимом «Курсы»)
+  const empBlock=document.getElementById('rptEmpBlock'),perBlock=document.getElementById('rptPerBlock');
+  if(empBlock) empBlock.style.display='';
+  if(perBlock) perBlock.style.display='';
+  const chkLbl=document.getElementById('rptChartsLbl');
+  if(chkLbl) chkLbl.textContent='Диаграммы (статусы, нагрузка, виды работ)';
   document.getElementById('rptEmpList').style.display='none';
   // Default period: current year
   rptSetPeriod('year');
@@ -3618,6 +3781,14 @@ function rptMoClick(e){ if(e.target===document.getElementById('rptMo')) closeRep
 function rptSetSrc(el){
   _rptSrc=el.dataset.val;
   document.querySelectorAll('#rptSrcRadios .rpt-radio').forEach(r=>r.classList.toggle('active',r===el));
+  // Для курсов фильтры «Сотрудники» и «Период» неприменимы — прячем их
+  const isCourses=_rptSrc==='courses';
+  const empBlock=document.getElementById('rptEmpBlock');
+  const perBlock=document.getElementById('rptPerBlock');
+  if(empBlock) empBlock.style.display=isCourses?'none':'';
+  if(perBlock) perBlock.style.display=isCourses?'none':'';
+  const chkLbl=document.getElementById('rptChartsLbl');
+  if(chkLbl) chkLbl.textContent=isCourses?'Диаграммы (статусы, язык, прохождение)':'Диаграммы (статусы, нагрузка, виды работ)';
 }
 
 function rptSetEmpMode(el){
@@ -3706,8 +3877,100 @@ function svgHBars(items, width=340, padL=110){
   return `<svg width="${width}" height="${h}" viewBox="0 0 ${width} ${h}">${rects}</svg>`;
 }
 
+// ── Report generation: КУРСЫ ─────────────────────────────
+function generateCoursesReport(){
+  closeReportSettings();
+  const showKpi=document.getElementById('rptChkKpi').checked;
+  const showCharts=document.getElementById('rptChkCharts').checked;
+  const all=S.elearning||[];
+
+  // KPI
+  const profSet=new Set(all.map(r=>r.professiya||'—'));
+  const active=all.filter(r=>(r.status||'Активен')==='Активен').length;
+  const sumCa=all.reduce((a,r)=>a+(Number(r.tselevayaAuditoriya)||0),0);
+  const sumPr=all.reduce((a,r)=>a+(Number(r.proshli)||0),0);
+  const avg=sumCa?Math.round(sumPr/sumCa*100):0;
+
+  // Статусы
+  const EL_COL={'Активен':'#22c55e','В разработке':'#3b82f6','Архив':'#94a3b8'};
+  const sc={};all.forEach(r=>{const s=r.status||'Активен';sc[s]=(sc[s]||0)+1;});
+  const statSegs=Object.entries(sc).map(([l,v])=>({label:l,value:v,color:EL_COL[l]||'#94a3b8'})).filter(x=>x.value>0);
+
+  // Язык
+  const lc={RU:0,KZ:0};all.forEach(r=>{const l=elDetectLang(r);lc[l]=(lc[l]||0)+1;});
+  const langSegs=[{label:'Русский',value:lc.RU,color:'#1d4ed8'},{label:'Қазақша',value:lc.KZ,color:'#15803d'}].filter(x=>x.value>0);
+
+  // Прохождение по профессиям (%)
+  const groups={};
+  [...new Set(all.map(r=>r.professiya||'—'))].forEach(k=>{
+    const items=all.filter(r=>(r.professiya||'—')===k);
+    const ca=Number(items[0]?.tselevayaAuditoriya||0)||0;
+    const pr=items.reduce((a,r)=>a+(Number(r.proshli)||0),0);
+    groups[k]={ca,pr,pct:ca?Math.round(pr/ca*100):0};
+  });
+  const profBars=Object.entries(groups).sort((a,b)=>b[1].pct-a[1].pct)
+    .map(([l,v])=>({label:l,value:v.pct,color:(()=>{const hue=Math.min(Math.round(Math.min(v.pct,100)*1.2),120);return `hsl(${hue},70%,45%)`;})()}));
+
+  const kpiHtml=showKpi?`
+    <div class="rpt-sec">
+      <div class="rpt-sec-t">Сводка по курсам</div>
+      <div class="rpt-kpi-row">
+        <div class="rpt-kpi"><div class="rpt-kpi-l">Курсов</div><div class="rpt-kpi-v">${all.length}</div><div class="rpt-kpi-s">${profSet.size} профессий</div></div>
+        <div class="rpt-kpi green"><div class="rpt-kpi-l">Активных</div><div class="rpt-kpi-v">${active}</div><div class="rpt-kpi-s">${all.length?Math.round(active/all.length*100):0}% от всех</div></div>
+        <div class="rpt-kpi blue"><div class="rpt-kpi-l">Прошли / ЦА</div><div class="rpt-kpi-v">${sumPr}<span style="font-size:14px;color:#9ca3af"> / ${sumCa}</span></div><div class="rpt-kpi-s">человек</div></div>
+        <div class="rpt-kpi"><div class="rpt-kpi-l">Ср. прохождение</div><div class="rpt-kpi-v">${avg}%</div><div class="rpt-kpi-s">ЦА покрыта</div></div>
+      </div>
+    </div>`:'';
+
+  const donutHtml=svgDonut(statSegs,160);
+  const statLegend=statSegs.map(s=>`<div class="rpt-leg-it"><div class="rpt-leg-dot" style="background:${s.color}"></div>${esc(s.label)}: <b>${s.value}</b></div>`).join('');
+  const langDonut=svgDonut(langSegs,160);
+  const langLegend=langSegs.map(s=>`<div class="rpt-leg-it"><div class="rpt-leg-dot" style="background:${s.color}"></div>${esc(s.label)}: <b>${s.value}</b></div>`).join('');
+  const profBarsHtml=svgHBars(profBars,660,150);
+
+  const chartsHtml=showCharts?`
+    <div class="rpt-sec">
+      <div class="rpt-sec-t">Диаграммы</div>
+      <div class="rpt-chart-row">
+        <div class="rpt-chart-box">
+          <div class="rpt-chart-t">Статусы курсов</div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:10px">
+            ${donutHtml}<div class="rpt-legend" style="justify-content:center">${statLegend}</div>
+          </div>
+        </div>
+        <div class="rpt-chart-box">
+          <div class="rpt-chart-t">Язык курсов</div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:10px">
+            ${langDonut}<div class="rpt-legend" style="justify-content:center">${langLegend}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="rpt-sec rpt-emp-sec">
+      <div class="rpt-sec-t">Прохождение по профессиям, %</div>
+      <div class="rpt-chart-box">${profBarsHtml}</div>
+    </div>`:'';
+
+  document.getElementById('rptPage').innerHTML=`
+    <div class="rpt-page-hd">
+      <div class="rpt-page-title">ERG CU — Учёт образовательных ресурсов</div>
+      <div class="rpt-page-sub">Отчёт по электронным курсам</div>
+      <div class="rpt-page-meta">
+        <div class="rpt-meta-it">📚 Источник: <span class="rpt-meta-val">Электронные курсы</span></div>
+        <div class="rpt-meta-it">📊 Курсов: <span class="rpt-meta-val">${all.length}</span></div>
+        <div class="rpt-meta-it">🕐 Сформирован: <span class="rpt-meta-val">${new Date().toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}</span></div>
+      </div>
+    </div>
+    ${kpiHtml}
+    ${chartsHtml}
+    ${!showKpi&&!showCharts?'<div class="rpt-empty">Выберите хотя бы один раздел для включения в отчёт</div>':''}
+  `;
+  document.getElementById('rptPreview').classList.add('open');
+}
+
 // ── Report generation ────────────────────────────────────
 function generateReport(){
+  if(_rptSrc==='courses'){ generateCoursesReport(); return; }
   closeReportSettings();
 
   const dateFrom=document.getElementById('rptFrom').value;
@@ -3840,6 +4103,11 @@ function generateReport(){
 function closeReportPreview(){ document.getElementById('rptPreview').classList.remove('open'); }
 
 async function init(){
+  // Версия: метка в сайдбаре + лог в консоль (быстрая проверка, что загружена свежая сборка)
+  const verEl=document.getElementById('appVerLabel');
+  if(verEl){ verEl.textContent='v'+APP_VERSION; verEl.title='Версия '+APP_VERSION+' · сборка '+APP_BUILD; }
+  console.log('%c Учёт ОР %c v'+APP_VERSION+' ('+APP_BUILD+') ','background:#0d1b2a;color:#fff;border-radius:3px 0 0 3px;padding:2px 4px','background:#16a34a;color:#fff;border-radius:0 3px 3px 0;padding:2px 4px');
+
   // Если credentials вшиты — прячем кнопку настройки (не нужна пользователям)
   const hardcoded=!!(SUPA_URL&&SUPA_KEY);
   const dbBtn=document.querySelector('.sb-btn[onclick="showDBSetup()"]');
