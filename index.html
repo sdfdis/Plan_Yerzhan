@@ -234,6 +234,50 @@ tr.row-sn td{background:#fffbeb}
 .cfg-empty{color:var(--t3);font-size:12px;text-align:center;padding:14px 0;font-style:italic}
 .cfg-count{font-size:10.5px;font-family:var(--mono);color:var(--t3);background:var(--bg);border-radius:10px;padding:1px 7px;margin-left:auto;flex-shrink:0}
 
+/* E-LEARNING (Н-3) */
+.el-wrap{padding:16px}
+.el-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.el-seg{display:inline-flex;background:var(--white);border:1px solid var(--bd);border-radius:var(--rs);overflow:hidden}
+.el-seg button{border:none;background:none;padding:7px 14px;font-family:var(--font);font-size:12.5px;color:var(--t2);cursor:pointer;transition:all .15s}
+.el-seg button.active{background:var(--acc);color:#0d1b2a;font-weight:600}
+.el-srch{padding:7px 11px 7px 30px;border:1px solid var(--bd);border-radius:var(--rs);font-family:var(--font);font-size:13px;width:200px;outline:none;background:var(--white);color:var(--t1)}
+.el-srch:focus{border-color:var(--acc)}
+.el-sel{padding:7px 10px;border:1px solid var(--bd);border-radius:var(--rs);font-family:var(--font);font-size:12.5px;background:var(--white);color:var(--t1);cursor:pointer;outline:none}
+.el-sel:focus{border-color:var(--acc)}
+.el-spacer{flex:1}
+.el-kpi{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.el-kc{background:var(--white);border:1px solid var(--bd);border-radius:var(--r);padding:12px 16px;min-width:120px}
+.el-kc-v{font-size:22px;font-weight:700;color:var(--t1);line-height:1.1}
+.el-kc-l{font-size:11px;color:var(--t3);margin-top:3px}
+.el-kc.acc .el-kc-v{color:var(--acc-d)}
+.el-tw{overflow-x:auto;background:var(--white);border-radius:var(--r);border:1px solid var(--bd)}
+.el-tw table{width:100%;border-collapse:collapse;font-size:12.5px}
+.el-tw thead th{background:#f8fafc;color:var(--t2);font-weight:600;font-size:10.5px;letter-spacing:.4px;text-transform:uppercase;padding:9px 12px;text-align:left;border-bottom:2px solid var(--bd);white-space:nowrap}
+.el-tw td{padding:9px 12px;border-bottom:1px solid var(--bd);vertical-align:middle}
+.el-tw tbody tr:hover{background:#f9fafb}
+.el-tw tbody tr.el-clickable{cursor:pointer}
+.el-num{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.el-prosh{font-variant-numeric:tabular-nums;font-weight:600;cursor:pointer;border-bottom:1px dashed var(--t3);padding:1px 3px;border-radius:3px}
+.el-prosh:hover{background:#fef3c7;border-bottom-color:var(--acc)}
+.el-prosh-inp{width:60px;padding:3px 5px;border:1px solid var(--acc);border-radius:4px;font-family:var(--font);font-size:12.5px;text-align:right;outline:none}
+.el-pct{display:inline-flex;align-items:center;gap:6px;min-width:90px}
+.el-pct-bar{flex:1;height:6px;background:#eef2f7;border-radius:3px;overflow:hidden;min-width:44px}
+.el-pct-fill{height:100%;background:var(--acc);border-radius:3px;transition:width .3s}
+.el-pct-fill.hi{background:#16a34a}.el-pct-fill.mid{background:#e8a020}.el-pct-fill.lo{background:#dc2626}
+.el-pct-t{font-size:11px;color:var(--t2);font-variant-numeric:tabular-nums;min-width:30px;text-align:right}
+.el-lnk{color:var(--acc-d);text-decoration:none;font-size:14px}
+.el-lnk:hover{opacity:.7}
+.el-gh{background:#f1f5f9;cursor:pointer}
+.el-gh:hover{background:#e8eef5}
+.el-gh td{padding:8px 12px;font-weight:600;border-bottom:1px solid var(--bd)}
+.el-gh-caret{display:inline-block;width:14px;color:var(--t3);transition:transform .15s}
+.el-gh.collapsed .el-gh-caret{transform:rotate(-90deg)}
+.el-gh-sum{font-weight:400;color:var(--t2);font-size:11.5px;margin-left:8px}
+.el-empty{padding:48px 20px;text-align:center;color:var(--t3)}
+.el-empty-ic{font-size:40px;margin-bottom:10px;opacity:.5}
+.el-razr{display:inline-block;padding:1px 7px;background:#eef2f7;border-radius:10px;font-size:11px;color:var(--t2);white-space:nowrap}
+@media(max-width:768px){.el-wrap{padding:10px}.el-srch{width:140px}.el-kc{min-width:96px;padding:10px 12px}}
+
 /* MANAGER */
 .mgr-wrap{padding:20px;max-width:680px}
 .mgr-c{background:var(--white);border-radius:var(--r);border:1px solid var(--bd);padding:22px;margin-bottom:14px}
@@ -716,6 +760,7 @@ tr.row-arc .tc-name,tr.row-arc .tc-m,tr.row-arc .tc-d,tr.row-arc .tc-cm{color:va
     <div class="nav-it" onclick="go('dash')" id="nav-dash"><span class="ni">📊</span>Дашборд</div>
     <div class="nav-it" onclick="go('cfg')" id="nav-cfg"><span class="ni">🗂️</span>Справочники</div>
     <div class="nav-it" onclick="go('cnt')" id="nav-cnt"><span class="ni">📱</span>Контент<span class="nav-bg" id="bg-cnt">0</span></div>
+    <div class="nav-it" onclick="go('el')" id="nav-el"><span class="ni">📚</span>Курсы<span class="nav-bg" id="bg-el">0</span></div>
     <div class="nav-it" onclick="go('my')" id="nav-my"><span class="ni">🎯</span>Мои задачи</div>
     <div class="nav-it" onclick="go('mgr')" id="nav-mgr"><span class="ni">⚙️</span>Менеджер</div>
   </nav>
@@ -895,6 +940,10 @@ tr.row-arc .tc-name,tr.row-arc .tc-m,tr.row-arc .tc-d,tr.row-arc .tc-cm{color:va
       <div class="kb-wrap" id="kbWrap"></div>
     </div>
 
+    <div class="tab-p" id="tab-el">
+      <div class="el-wrap" id="elWrap"></div>
+    </div>
+
     <div class="tab-p" id="tab-my">
       <div class="my-pg" id="myWrap"></div>
     </div>
@@ -917,6 +966,15 @@ tr.row-arc .tc-name,tr.row-arc .tc-m,tr.row-arc .tc-d,tr.row-arc .tc-cm{color:va
             <div class="uz-s">Поддерживается: .xlsx, .xls</div>
           </div>
           <input type="file" id="iExcel" accept=".xlsx,.xls" onchange="doImportExcel(this)" style="display:none">
+        </div>
+        <div class="mgr-c">
+          <h3>📚 Импорт электронных курсов</h3>
+          <p>Загрузите <strong>приложение_1_Список_профессий</strong> — курсы перенесутся в раздел «Курсы». Профессия и ЦА протягиваются на разряды автоматически, дубли отсекаются по коду курса. Ручные поля (прошли, статус, предприятие, дивизион) у существующих курсов сохраняются.</p>
+          <div class="uzone" onclick="document.getElementById('iElXlsx').click()">
+            <div class="uz-ic">📚</div><div class="uz-t">Нажмите для выбора файла</div>
+            <div class="uz-s">Поддерживается: .xlsx, .xls</div>
+          </div>
+          <input type="file" id="iElXlsx" accept=".xlsx,.xls" onchange="doImportElearning(this)" style="display:none">
         </div>
         <div class="mgr-c">
           <h3>💾 Управление сохранениями</h3>
@@ -1148,9 +1206,10 @@ const R_DEF = {
   tip:['Курс','ВПО','Тест','Инструкция','Программа КЦН','Обязательная тема курса','Оцифровка','Тестовые задания'],
   stat:['Не начато','В работе','На согласовании','Доработка','Завершено','Приостановлено'],
   pvp:['План','Внеплан'],
-  pred:['ПАЗ','КИР','АксЗФ','ШК','ERG Service','ССГПО','ERGS','КЭЗ','ДГОК','АктЗФ','ЕЭК','ЭС','ПМЗ','РММЗ','ССГПО ГБЖ','все предприятия','Аксу','Рудный','АО «ССГПО»','АО «АК»','АО «ШК»']
+  pred:['ПАЗ','КИР','АксЗФ','ШК','ERG Service','ССГПО','ERGS','КЭЗ','ДГОК','АктЗФ','ЕЭК','ЭС','ПМЗ','РММЗ','ССГПО ГБЖ','все предприятия','Аксу','Рудный','АО «ССГПО»','АО «АК»','АО «ШК»'],
+  divizion:[]
 };
-const R = {emp:[],gph:[],vid:[],tip:[],stat:[],pvp:[],pred:[]};
+const R = {emp:[],gph:[],vid:[],tip:[],stat:[],pvp:[],pred:[],divizion:[]};
 // ── SUPABASE CONFIG ────────────────────────────────────────
 // Заполните один раз — все пользователи подключатся автоматически
 const SUPA_URL = 'https://ackgozjmkwrcmvvxadus.supabase.co';
@@ -1344,6 +1403,11 @@ async function loadDataFromDB(){
     const cr=await fetchAllRows('or_content');
     S.content=cr.map(r=>r.data);
   }catch(e){ console.warn('or_content unavailable:',e); }
+  // or_elearning (Н-3) загружаем отдельно — таблица могла ещё не быть создана
+  try{
+    const er=await fetchAllRows('or_elearning');
+    S.elearning=er.map(r=>r.data);
+  }catch(e){ console.warn('or_elearning unavailable:',e); }
 }
 
 async function loadRefFromDB(){
@@ -1458,10 +1522,10 @@ function markDirty(){
 // Отслеживаем, какие именно записи изменены локально и не подтверждены в БД.
 // Автосейв пушит только их, а не весь массив (иначе устаревшая локальная копия
 // затирает чужую свежую запись).
-function _dset(t){ if(!S.dirtyIds) S.dirtyIds={shtat:new Set(),gph:new Set(),content:new Set()}; return S.dirtyIds[t]; }
+function _dset(t){ if(!S.dirtyIds) S.dirtyIds={shtat:new Set(),gph:new Set(),content:new Set(),elearning:new Set()}; return S.dirtyIds[t]; }
 function recDirty(t,id){ const s=_dset(t); if(s) s.add(id); }
 function recClean(t,id){ const s=_dset(t); if(s) s.delete(id); }
-function anyRecDirty(){ return !!(S.dirtyIds && ['shtat','gph','content'].some(t=>S.dirtyIds[t]&&S.dirtyIds[t].size)); }
+function anyRecDirty(){ return !!(S.dirtyIds && ['shtat','gph','content','elearning'].some(t=>S.dirtyIds[t]&&S.dirtyIds[t].size)); }
 
 // Подтверждение одной записи (после немедленного upsert/delete).
 // Снимает только её id; глобальный «чисто» ставим лишь когда не осталось грязных.
@@ -1525,10 +1589,11 @@ async function saveAll(){
     localStorage.setItem('or_shtat',   JSON.stringify(S.shtat));
     localStorage.setItem('or_gph',     JSON.stringify(S.gph));
     localStorage.setItem('or_content', JSON.stringify(S.content));
+    localStorage.setItem('or_elearning', JSON.stringify(S.elearning));
     if(dbClient){
       // К-3: пушим ТОЛЬКО локально изменённые записи (dirty-set), а не весь массив —
       // иначе устаревшая локальная копия затирает чужую свежую запись в БД.
-      const pushed = {shtat:[], gph:[], content:[]};
+      const pushed = {shtat:[], gph:[], content:[], elearning:[]};
       const build = (table)=>{
         const ids = [...(_dset(table)||[])];
         const rows = [];
@@ -1539,18 +1604,19 @@ async function saveAll(){
         });
         return rows;
       };
-      const sr = build('shtat'), gr = build('gph'), cr = build('content');
+      const sr = build('shtat'), gr = build('gph'), cr = build('content'), er = build('elearning');
       const ops = [];
       if(sr.length){ sr.forEach(r=>markOwnWrite(r.id)); ops.push(dbClient.from('or_shtat').upsert(sr)); }
       if(gr.length){ gr.forEach(r=>markOwnWrite(r.id)); ops.push(dbClient.from('or_gph').upsert(gr)); }
       if(cr.length){ cr.forEach(r=>markOwnWrite(r.id)); ops.push(dbClient.from('or_content').upsert(cr)); }
+      if(er.length){ er.forEach(r=>markOwnWrite(r.id)); ops.push(dbClient.from('or_elearning').upsert(er)); }
       if(ops.length){
         const results = await Promise.all(ops);
         const err = results.find(r=>r.error);
         if(err) throw err.error; // при ошибке dirty-set НЕ чистим — записи уйдут в следующий проход
       }
       // Успех: снимаем подтверждённые id (markSaved ниже очистит остаток, если он пуст)
-      ['shtat','gph','content'].forEach(t=>pushed[t].forEach(id=>recClean(t,id)));
+      ['shtat','gph','content','elearning'].forEach(t=>pushed[t].forEach(id=>recClean(t,id)));
       setDbStatus('ok'); // п.5: успешный пуш снимает «Ошибка БД» после разового 401/403 при refresh
     }
     markSaved();
@@ -1652,7 +1718,7 @@ function startRealtimeSync(){
       return;
     }
 
-    const key = table === 'or_shtat' ? 'shtat' : table === 'or_gph' ? 'gph' : 'content';
+    const key = table === 'or_shtat' ? 'shtat' : table === 'or_gph' ? 'gph' : table === 'or_elearning' ? 'elearning' : 'content';
     const arr = S[key];
 
     if(eventType === 'INSERT' || eventType === 'UPDATE'){
@@ -1689,6 +1755,7 @@ function startRealtimeSync(){
     .on('postgres_changes',{event:'*',schema:'public',table:'or_shtat'},  p=>applyChange('or_shtat',p))
     .on('postgres_changes',{event:'*',schema:'public',table:'or_gph'},    p=>applyChange('or_gph',p))
     .on('postgres_changes',{event:'*',schema:'public',table:'or_content'},p=>applyChange('or_content',p))
+    .on('postgres_changes',{event:'*',schema:'public',table:'or_elearning'},p=>applyChange('or_elearning',p))
     .on('postgres_changes',{event:'*',schema:'public',table:'or_ref'},    p=>applyChange('or_ref',p))
     .subscribe(status=>{
       if(status==='CHANNEL_ERROR') console.warn('[Realtime] ошибка канала — возможно, таблицы не добавлены в публикацию. Выполните SQL из Менеджера.');
@@ -1719,7 +1786,7 @@ async function createBackup(){
       label: label || new Date().toLocaleString('ru-RU'),
       shtat_count: S.shtat.length,
       gph_count:   S.gph.length,
-      data: { shtat: S.shtat, gph: S.gph, content: S.content, ref: R }
+      data: { shtat: S.shtat, gph: S.gph, content: S.content, elearning: S.elearning, ref: R }
     };
     const {error} = await dbClient.from('or_backups').insert(rec);
     if(error) throw error;
@@ -1743,6 +1810,7 @@ async function restoreBackup(id){
     if(data.data.shtat)   S.shtat   = data.data.shtat;
     if(data.data.gph)     S.gph     = data.data.gph;
     if(data.data.content) S.content = data.data.content;
+    if(data.data.elearning) S.elearning = data.data.elearning;
     await saveAll();
     if(data.data.ref){
       Object.keys(R).forEach(k=>{ if(data.data.ref[k]) R[k] = data.data.ref[k]; });
@@ -1834,10 +1902,12 @@ function genId(){
 // ── STATE ──────────────────────────────────────────────────
 const DKEYS=['fio','stat','vid','tip'];
 const DLABELS={fio:'Сотрудник',stat:'Статус',vid:'Вид работы',tip:'Тип ОР'};
-let S={shtat:[],gph:[],content:[],user:'',tab:'shtat',editId:null,moType:'shtat',
+let S={shtat:[],gph:[],content:[],elearning:[],user:'',tab:'shtat',editId:null,moType:'shtat',
   f:{fio:new Set(),stat:new Set(),vid:new Set(),tip:new Set(),q:'',dateFrom:'',dateTo:''},
+  elf:{q:'',pred:'',div:'',status:'',razryad:''},
   chSrc:{stat:'shtat',pers:'shtat'},
-  charts:{}, dirty:false, saving:false, lastSaved:null, justSaved:false, cntView:'kanban', groupBy:'', showArchived:false};
+  charts:{}, dirty:false, saving:false, lastSaved:null, justSaved:false, cntView:'kanban', groupBy:'', showArchived:false,
+  elView:'list', elCollapsed:{}, elEditing:null};
 
 // Состояние сворачивания секций «Мои задачи» — сохраняется между ре-рендерами и перезагрузками
 // done=false: завершённые свёрнуты по умолчанию (накапливается больше всего)
@@ -1849,6 +1919,7 @@ function loadLocal(){
   try{S.shtat=JSON.parse(localStorage.getItem('or_shtat')||'[]');}catch(e){S.shtat=[];}
   try{S.gph=JSON.parse(localStorage.getItem('or_gph')||'[]');}catch(e){S.gph=[];}
   try{S.content=JSON.parse(localStorage.getItem('or_content')||'[]');}catch(e){S.content=[];}
+  try{S.elearning=JSON.parse(localStorage.getItem('or_elearning')||'[]');}catch(e){S.elearning=[];}
   S.user=localStorage.getItem('or_user')||'';
   if(S.user)document.getElementById('userSel').value=S.user;
 }
@@ -1857,6 +1928,8 @@ function updBg(){
   document.getElementById('bg-gph').textContent=S.gph.filter(r=>!r.archived).length;
   const bgCnt=document.getElementById('bg-cnt');
   if(bgCnt) bgCnt.textContent=S.content.length;
+  const bgEl=document.getElementById('bg-el');
+  if(bgEl) bgEl.textContent=S.elearning.length;
   // Update archive toggle button label with count
   const arcBtn=document.getElementById('arcToggleBtn');
   if(arcBtn){
@@ -1871,8 +1944,8 @@ function updBg(){
 function setUser(v){S.user=v;localStorage.setItem('or_user',v);if(S.tab==='my')renderMyTasks();}
 
 // ── NAVIGATION ─────────────────────────────────────────────
-const TABS=['shtat','gph','dash','cfg','cnt','my','mgr'];
-const TITLES={shtat:'Штат',gph:'ГПХ — Подрядчики',dash:'Дашборд',cfg:'Справочники',cnt:'Контент-план',my:'Мои задачи',mgr:'Менеджер'};
+const TABS=['shtat','gph','dash','cfg','cnt','el','my','mgr'];
+const TITLES={shtat:'Штат',gph:'ГПХ — Подрядчики',dash:'Дашборд',cfg:'Справочники',cnt:'Контент-план',el:'Электронные курсы',my:'Мои задачи',mgr:'Менеджер'};
 const FIELD_LABELS={fio:'ФИО',fioRazrab:'Разработчик',fioKurator:'Куратор',vidRaboty:'Вид работы',tipOR:'Тип ОР',navOR:'Наименование',predpriyatie:'Предприятие',planVnePlan:'Пл/Вн',dateStartPlan:'Нач.план',dateEndPlan:'Ок.план',dateStartFact:'Нач.факт',dateEndFact:'Ок.факт',dateStart:'Дата нач.',dateEnd:'Дата ок.',status:'Статус',kommentarii:'Комментарий'};
 function go(tab){
   S.tab=tab;
@@ -2125,6 +2198,7 @@ function render(){
   else if(S.tab==='dash')renderDash();
   else if(S.tab==='cfg')renderCfg();
   else if(S.tab==='cnt')renderKanban();
+  else if(S.tab==='el')renderElearning();
   else if(S.tab==='my')renderMyTasks();
   else if(S.tab==='mgr')renderSaveMgr();
   requestAnimationFrame(markClips);
@@ -2674,6 +2748,7 @@ function gv(id){const el=document.getElementById(id);return el?el.value.trim():'
 
 async function saveMo(){
   if(S.moType==='content'){await saveContentMo();return;}
+  if(S.moType==='elearning'){await saveElModal();return;}
   const type=S.moType;
   const wasEdit=!!S.editId;
   let rec,prev;
@@ -2765,6 +2840,98 @@ function doImportExcel(inp){
     inp.value='';
   };rd.readAsArrayBuffer(f);
 }
+// ── E-LEARNING: импорт Excel (Н-3) ─────────────────────────
+// Форвард-филл №/профессии/ЦА (merged-cell паттерн), дедуп по kodKursa,
+// merge ручных полей (proshli/status/predpriyatie/divizion) из существующей записи.
+function doImportElearning(inp){
+  const f=inp.files[0];if(!f)return;
+  const rd=new FileReader();
+  rd.onload=async e=>{
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array',cellDates:true});
+      // берём первый лист (или 'Лист1')
+      const ws=wb.Sheets['Лист1']||wb.Sheets[wb.SheetNames[0]];
+      if(!ws){notify('Лист не найден в файле','error');inp.value='';return;}
+      const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      // индекс существующих по коду курса
+      const byKod=new Map(S.elearning.map(r=>[String(r.kodKursa||'').trim(),r]));
+      let added=0,updated=0,skipped=0;
+      let curNomer='',curProf='',curCa='';
+      const touched=[];
+      for(let i=1;i<rows.length;i++){
+        const r=rows[i];
+        // forward-fill: № / профессия / ЦА держим из последней непустой строки
+        const cNomer=String(r[0]??'').trim();
+        const cProf=String(r[1]??'').trim();
+        const cCa=String(r[2]??'').trim();
+        if(cNomer)curNomer=cNomer;
+        if(cProf)curProf=cProf;
+        if(cCa!=='')curCa=cCa;
+        const razryad=String(r[3]??'').trim();
+        const lnk=String(r[4]??'').trim();
+        const kod=String(r[5]??'').trim();
+        // строка считается курсом только если есть код курса
+        if(!kod){skipped++;continue;}
+        if(!curProf){skipped++;continue;}
+        const caNum=curCa!==''?Number(String(curCa).replace(/\s/g,''))||'':'';
+        const nomerNum=curNomer!==''?Number(curNomer)||'':'';
+        const exist=byKod.get(kod);
+        if(exist){
+          // merge: обновляем данные из Excel, СОХРАНЯЕМ ручные поля
+          exist.nomer=nomerNum;
+          exist.professiya=curProf;
+          exist.tselevayaAuditoriya=caNum;
+          exist.razryad=razryad||exist.razryad;
+          if(lnk)exist.ssylkaRu=lnk;
+          exist.updatedAt=new Date().toISOString();
+          // proshli, status, predpriyatie, divizion, kommentarii — НЕ трогаем
+          touched.push(exist);
+          updated++;
+        }else{
+          const rec={
+            id:genId(),
+            nomer:nomerNum,
+            kodKursa:kod,
+            professiya:curProf,
+            razryad:razryad,
+            tselevayaAuditoriya:caNum,
+            ssylkaRu:lnk,
+            ssylkaKz:'',
+            predpriyatie:'',
+            divizion:'',
+            proshli:'',
+            status:'Активен',
+            kommentarii:'',
+            dataObnovleniyaStat:'',
+            createdAt:new Date().toISOString(),
+            updatedAt:new Date().toISOString()
+          };
+          S.elearning.push(rec);
+          byKod.set(kod,rec);
+          touched.push(rec);
+          added++;
+        }
+      }
+      updBg();
+      localStorage.setItem('or_elearning',JSON.stringify(S.elearning));
+      touched.forEach(r=>recDirty('elearning',r.id));
+      if(added||updated)markDirty();
+      if(dbClient){
+        try{
+          const er=touched.map(r=>({id:r.id,data:r,updated_at:r.updatedAt}));
+          er.forEach(r=>markOwnWrite(r.id));
+          if(er.length) await dbClient.from('or_elearning').upsert(er);
+          touched.forEach(r=>recClean('elearning',r.id));
+          if(!anyRecDirty())markSaved();
+        }catch(e){console.error('Elearning DB save:',e);}
+      }
+      render();
+      notify(`Импорт курсов: +${added} новых, ${updated} обновлено${skipped?`, пропущено строк: ${skipped}`:''} ✓`,'success');
+    }catch(ex){console.error(ex);notify('Ошибка импорта курсов','error');}
+    inp.value='';
+  };rd.readAsArrayBuffer(f);
+}
+
 function exportExcel(){
   const wb=XLSX.utils.book_new();
   const srcS=filtered(S.shtat,false), srcG=filtered(S.gph,true);
@@ -2839,7 +3006,7 @@ async function confirmClearAll(){
         label: 'Авто-бекап перед очисткой — ' + new Date().toLocaleString('ru-RU'),
         shtat_count: S.shtat.length,
         gph_count:   S.gph.length,
-        data: { shtat: S.shtat, gph: S.gph, content: S.content, ref: R }
+        data: { shtat: S.shtat, gph: S.gph, content: S.content, elearning: S.elearning, ref: R }
       };
       await dbClient.from('or_backups').insert(rec);
       await pruneBackups();
@@ -2849,17 +3016,19 @@ async function confirmClearAll(){
   btn.textContent = '⏳ Удаляем…';
   // Маркируем все ID перед удалением — realtime DELETE-события не должны
   // вызывать лишние applyChange на том же браузере
-  [...S.shtat,...S.gph,...S.content].forEach(r=>markOwnWrite(r.id));
-  S.shtat=[];S.gph=[];S.content=[];
+  [...S.shtat,...S.gph,...S.content,...S.elearning].forEach(r=>markOwnWrite(r.id));
+  S.shtat=[];S.gph=[];S.content=[];S.elearning=[];
   localStorage.removeItem('or_shtat');
   localStorage.removeItem('or_gph');
   localStorage.removeItem('or_content');
+  localStorage.removeItem('or_elearning');
   if(dbClient){
     try{
       await Promise.all([
         dbClient.from('or_shtat').delete().neq('id','__none__'),
         dbClient.from('or_gph').delete().neq('id','__none__'),
         dbClient.from('or_content').delete().neq('id','__none__'),
+        dbClient.from('or_elearning').delete().neq('id','__none__'),
       ]);
     }catch(e){ console.error('clearAll DB:',e); }
   }
@@ -3272,6 +3441,289 @@ async function delContent(id){
 }
 
 function notify(msg,type){const el=document.createElement('div');el.className='notif'+(type?' '+type:'');el.textContent=msg;document.body.appendChild(el);setTimeout(()=>{el.style.opacity='0';el.style.transition='opacity .3s';setTimeout(()=>el.remove(),300);},3000);}
+
+// ── E-LEARNING (Н-3) ───────────────────────────────────────
+const EL_STATUSES=['Активен','В разработке','Архив'];
+const EL_SBCLS={'Активен':'b-dn','В разработке':'b-ip','Архив':'b-ns'};
+function elBdg(s){const v=s||'Активен';return `<span class="badge ${EL_SBCLS[v]||'b-ns'}">${esc(v)}</span>`;}
+
+// процент прохождения (вариант А: ЦА на каждый разряд)
+function elPct(rec){
+  const ca=Number(rec.tselevayaAuditoriya)||0;
+  const pr=Number(rec.proshli)||0;
+  if(!ca) return null;
+  return Math.round(pr/ca*100);
+}
+function elPctCell(rec){
+  const p=elPct(rec);
+  if(p===null) return '<span style="color:var(--t3);font-size:11px">—</span>';
+  const cls=p>=80?'hi':p>=40?'mid':'lo';
+  const w=Math.min(p,100);
+  return `<span class="el-pct"><span class="el-pct-bar"><span class="el-pct-fill ${cls}" style="width:${w}%"></span></span><span class="el-pct-t">${p}%</span></span>`;
+}
+
+function elFiltered(){
+  const f=S.elf;
+  const q=(f.q||'').toLowerCase().trim();
+  return S.elearning.filter(r=>{
+    if(f.pred && r.predpriyatie!==f.pred) return false;
+    if(f.div && r.divizion!==f.div) return false;
+    if(f.status && (r.status||'Активен')!==f.status) return false;
+    if(f.razryad && r.razryad!==f.razryad) return false;
+    if(q){
+      const hay=`${r.professiya||''} ${r.kodKursa||''} ${r.razryad||''} ${r.predpriyatie||''} ${r.divizion||''}`.toLowerCase();
+      if(!hay.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function renderElearning(){
+  const wrap=document.getElementById('elWrap');
+  if(!wrap) return;
+  const all=S.elearning;
+  const rows=elFiltered();
+
+  const total=rows.length;
+  const profSet=new Set(rows.map(r=>r.professiya||'—'));
+  const active=rows.filter(r=>(r.status||'Активен')==='Активен').length;
+  const sumCa=rows.reduce((a,r)=>a+(Number(r.tselevayaAuditoriya)||0),0);
+  const sumPr=rows.reduce((a,r)=>a+(Number(r.proshli)||0),0);
+  const avgPct=sumCa?Math.round(sumPr/sumCa*100):0;
+
+  const predOpts=[...new Set([...(R.pred||[]),...all.map(r=>r.predpriyatie).filter(Boolean)])].sort();
+  const divOpts=[...new Set([...(R.divizion||[]),...all.map(r=>r.divizion).filter(Boolean)])].sort();
+  const razrOpts=[...new Set(all.map(r=>r.razryad).filter(Boolean))].sort();
+
+  const f=S.elf;
+  const optList=(arr,sel)=>arr.map(v=>`<option value="${esc(v)}" ${sel===v?'selected':''}>${esc(v)}</option>`).join('');
+
+  if(!all.length){
+    wrap.innerHTML=`<div class="el-bar">
+      <button class="btn btn-p" onclick="openElModal()">＋ Добавить курс</button>
+    </div>
+    <div class="el-tw"><div class="el-empty"><div class="el-empty-ic">📚</div>
+      <div style="font-weight:600;color:var(--t2);margin-bottom:4px">Курсов пока нет</div>
+      <div style="font-size:12.5px">Добавьте курс вручную или импортируйте Excel-шаблон во вкладке «Менеджер».</div>
+    </div></div>`;
+    return;
+  }
+
+  const bar=`<div class="el-bar">
+    <div class="el-seg">
+      <button class="${S.elView==='list'?'active':''}" onclick="setElView('list')">≡ Список</button>
+      <button class="${S.elView==='group'?'active':''}" onclick="setElView('group')">▾ По профессии</button>
+    </div>
+    <div style="position:relative">
+      <input class="el-srch" id="elSrch" placeholder="Поиск курса…" value="${esc(f.q||'')}" oninput="setElFilter('q',this.value)">
+    </div>
+    <select class="el-sel" onchange="setElFilter('pred',this.value)"><option value="">Все предприятия</option>${optList(predOpts,f.pred)}</select>
+    <select class="el-sel" onchange="setElFilter('div',this.value)"><option value="">Все дивизионы</option>${optList(divOpts,f.div)}</select>
+    <select class="el-sel" onchange="setElFilter('razryad',this.value)"><option value="">Все разряды</option>${optList(razrOpts,f.razryad)}</select>
+    <select class="el-sel" onchange="setElFilter('status',this.value)"><option value="">Все статусы</option>${optList(EL_STATUSES,f.status)}</select>
+    ${(f.q||f.pred||f.div||f.razryad||f.status)?'<button class="btn btn-g" onclick="resetElFilters()">✕ Сброс</button>':''}
+    <div class="el-spacer"></div>
+    <button class="btn btn-p" onclick="openElModal()">＋ Добавить курс</button>
+  </div>`;
+
+  const kpi=`<div class="el-kpi">
+    <div class="el-kc"><div class="el-kc-v">${total}</div><div class="el-kc-l">курсов${total!==all.length?` из ${all.length}`:''}</div></div>
+    <div class="el-kc"><div class="el-kc-v">${profSet.size}</div><div class="el-kc-l">профессий</div></div>
+    <div class="el-kc"><div class="el-kc-v">${active}</div><div class="el-kc-l">активных</div></div>
+    <div class="el-kc acc"><div class="el-kc-v">${avgPct}%</div><div class="el-kc-l">ср. прохождение</div></div>
+  </div>`;
+
+  const thead=`<thead><tr>
+    <th>№</th><th>Профессия</th><th>Разряд</th><th>Предприятие</th><th>Дивизион</th>
+    <th class="el-num">ЦА</th><th class="el-num">Прошли</th><th>%</th><th>Ссылка</th><th>Статус</th>
+  </tr></thead>`;
+
+  let body='';
+  if(!rows.length){
+    body=`<tbody><tr><td colspan="10"><div class="el-empty"><div class="el-empty-ic">🔍</div>Ничего не найдено по текущим фильтрам</div></td></tr></tbody>`;
+  }else if(S.elView==='group'){
+    body=elGroupBody(rows);
+  }else{
+    body='<tbody>'+rows.map(r=>elRowHtml(r,false)).join('')+'</tbody>';
+  }
+
+  wrap.innerHTML=bar+kpi+`<div class="el-tw"><table>${thead}${body}</table></div>`;
+  const si=document.getElementById('elSrch');
+  if(si && S._elFocus){si.focus();si.setSelectionRange(si.value.length,si.value.length);}
+}
+
+function elRowHtml(r,indent){
+  const lnk=r.ssylkaRu||r.ssylkaKz||'';
+  const lnkCell=lnk?`<a class="el-lnk" href="${esc(lnk)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="Открыть курс">🔗</a>`:'<span style="color:var(--t3)">—</span>';
+  const prosh=Number(r.proshli)||0;
+  const proshCell=`<span class="el-prosh" onclick="event.stopPropagation();elEditProsh('${r.id}',this)" title="Кликните, чтобы изменить">${prosh}</span>`;
+  return `<tr class="el-clickable" onclick="openElModal('${r.id}')">
+    <td style="color:var(--t3)">${indent?'':esc(r.nomer||'')}</td>
+    <td${indent?' style="padding-left:24px"':''}>${esc(r.professiya||'')}</td>
+    <td><span class="el-razr">${esc(r.razryad||'')}</span></td>
+    <td>${esc(r.predpriyatie||'—')}</td>
+    <td>${esc(r.divizion||'—')}</td>
+    <td class="el-num">${r.tselevayaAuditoriya||'—'}</td>
+    <td class="el-num">${proshCell}</td>
+    <td>${elPctCell(r)}</td>
+    <td>${lnkCell}</td>
+    <td>${elBdg(r.status)}</td>
+  </tr>`;
+}
+
+function elGroupBody(rows){
+  const groups={};
+  rows.forEach(r=>{const k=r.professiya||'—';(groups[k]=groups[k]||[]).push(r);});
+  const keys=Object.keys(groups).sort((a,b)=>{
+    const na=Number(groups[a][0].nomer)||999, nb=Number(groups[b][0].nomer)||999;
+    return na-nb;
+  });
+  let html='<tbody>';
+  keys.forEach(k=>{
+    const items=groups[k];
+    const ca=Number(items[0].tselevayaAuditoriya)||0;
+    const sumPr=items.reduce((a,r)=>a+(Number(r.proshli)||0),0);
+    const pct=ca?Math.round(sumPr/ca*100):null;
+    const collapsed=S.elCollapsed[k];
+    const pctTxt=pct!==null?`<span class="el-pct" style="display:inline-flex;width:120px;vertical-align:middle"><span class="el-pct-bar"><span class="el-pct-fill ${pct>=80?'hi':pct>=40?'mid':'lo'}" style="width:${Math.min(pct,100)}%"></span></span><span class="el-pct-t">${pct}%</span></span>`:'';
+    html+=`<tr class="el-gh${collapsed?' collapsed':''}" onclick="elToggleGroup(this.dataset.k)" data-k="${esc(k)}">
+      <td colspan="10">
+        <span class="el-gh-caret">▾</span>
+        <strong>${esc(k)}</strong>
+        <span class="el-gh-sum">ЦА ${ca||'—'} · разрядов: ${items.length} · прошли: ${sumPr}</span>
+        ${pctTxt}
+      </td>
+    </tr>`;
+    if(!collapsed){
+      html+=items.map(r=>elRowHtml(r,true)).join('');
+    }
+  });
+  html+='</tbody>';
+  return html;
+}
+
+function setElView(v){S.elView=v;renderElearning();}
+function elToggleGroup(k){S.elCollapsed[k]=!S.elCollapsed[k];renderElearning();}
+function setElFilter(key,val){
+  S.elf[key]=val;
+  S._elFocus=(key==='q');
+  renderElearning();
+  S._elFocus=false;
+}
+function resetElFilters(){S.elf={q:'',pred:'',div:'',status:'',razryad:''};renderElearning();}
+
+function elEditProsh(id,span){
+  const rec=S.elearning.find(r=>r.id===id);
+  if(!rec) return;
+  const cur=Number(rec.proshli)||0;
+  const inp=document.createElement('input');
+  inp.type='number';inp.min='0';inp.className='el-prosh-inp';inp.value=cur;
+  span.replaceWith(inp);
+  inp.focus();inp.select();
+  let done=false;
+  const commit=async()=>{
+    if(done)return;done=true;
+    const val=Math.max(0,parseInt(inp.value,10)||0);
+    if(val!==cur){
+      rec.proshli=val;
+      rec.dataObnovleniyaStat=new Date().toISOString().slice(0,10);
+      rec.updatedAt=new Date().toISOString();
+      recDirty('elearning',rec.id);
+      localStorage.setItem('or_elearning',JSON.stringify(S.elearning));
+      if(dbClient){
+        try{
+          markOwnWrite(rec.id);
+          const {error}=await dbClient.from('or_elearning').upsert({id:rec.id,data:rec,updated_at:rec.updatedAt});
+          if(!error)markRecSaved('elearning',rec.id);
+        }catch(e){console.error('elEditProsh:',e);}
+      }
+    }
+    renderElearning();
+  };
+  inp.addEventListener('blur',commit);
+  inp.addEventListener('keydown',e=>{
+    if(e.key==='Enter'){e.preventDefault();inp.blur();}
+    else if(e.key==='Escape'){done=true;renderElearning();}
+  });
+}
+
+// ── E-LEARNING: карточка курса (CRUD) ──────────────────────
+function openElModal(id){
+  S.moType='elearning';S.editId=id||null;
+  const rec=id?S.elearning.find(r=>r.id===id):null;
+  S.moOpenVer=rec?(rec.updatedAt||null):null;
+  const v=rec||{};
+  document.getElementById('moTitle').textContent=(id?'Редактировать курс':'Добавить курс');
+  const optList=(arr,sel)=>arr.map(e=>`<option value="${esc(e)}" ${sel===e?'selected':''}>${esc(e)}</option>`).join('');
+  const predOpts=[...new Set([...(R.pred||[]),...S.elearning.map(r=>r.predpriyatie).filter(Boolean)])].sort();
+  const divOpts=[...new Set([...(R.divizion||[]),...S.elearning.map(r=>r.divizion).filter(Boolean)])].sort();
+  const predDl=predOpts.map(p=>`<option value="${esc(p)}">`).join('');
+  const divDl=divOpts.map(p=>`<option value="${esc(p)}">`).join('');
+  const html=`<div class="fg">
+    <div class="fg-group"><label class="fg-label">№ профессии</label><input type="number" class="fc" id="el_nomer" value="${esc(v.nomer||'')}"></div>
+    <div class="fg-group"><label class="fg-label">Код курса *</label><input type="text" class="fc" id="el_kod" placeholder="ind1235" value="${esc(v.kodKursa||'')}"></div>
+    <div class="fg-group full"><label class="fg-label">Профессия *</label><input type="text" class="fc" id="el_prof" placeholder="Напр. Взрывник" value="${esc(v.professiya||'')}"></div>
+    <div class="fg-group"><label class="fg-label">Разряд *</label><input type="text" class="fc" id="el_razr" placeholder="4 разряд" value="${esc(v.razryad||'')}"></div>
+    <div class="fg-group"><label class="fg-label">ЦА (целевая аудитория)</label><input type="number" class="fc" id="el_ca" min="0" value="${esc(v.tselevayaAuditoriya||'')}"></div>
+    <div class="fg-group"><label class="fg-label">Предприятие</label><input type="text" class="fc" id="el_pred" list="elPredDl" value="${esc(v.predpriyatie||'')}"><datalist id="elPredDl">${predDl}</datalist></div>
+    <div class="fg-group"><label class="fg-label">Дивизион</label><input type="text" class="fc" id="el_div" list="elDivDl" value="${esc(v.divizion||'')}"><datalist id="elDivDl">${divDl}</datalist></div>
+    <div class="fg-group full"><label class="fg-label">Ссылка (RU)</label><input type="text" class="fc" id="el_lnkru" placeholder="https://lms.erg.kz/course/view.php?id=…" value="${esc(v.ssylkaRu||'')}"></div>
+    <div class="fg-group full"><label class="fg-label">Ссылка (KZ)</label><input type="text" class="fc" id="el_lnkkz" placeholder="(если есть казахская версия)" value="${esc(v.ssylkaKz||'')}"></div>
+    <div class="fg-group"><label class="fg-label">Прошли</label><input type="number" class="fc" id="el_prosh" min="0" value="${esc(v.proshli||'')}"></div>
+    <div class="fg-group"><label class="fg-label">Статус</label><select class="fc" id="el_stat">${optList(EL_STATUSES,v.status||'Активен')}</select></div>
+    <div class="fg-group full"><label class="fg-label">Комментарии</label><textarea class="fc" id="el_kom">${esc(v.kommentarii||'')}</textarea></div>
+    ${v.dataObnovleniyaStat?`<div class="fg-group full" style="font-size:11.5px;color:var(--t3)">Статистика обновлена: ${esc(v.dataObnovleniyaStat)}</div>`:''}
+  </div>
+  ${id?`<div style="margin-top:8px"><button class="btn btn-dg" onclick="delElCourse('${id}')">🗑️ Удалить курс</button></div>`:''}`;
+  document.getElementById('moBody').innerHTML=html;
+  document.getElementById('mo').classList.add('open');
+}
+
+async function saveElModal(){
+  const kod=gv('el_kod'),prof=gv('el_prof'),razr=gv('el_razr');
+  if(!kod||!prof||!razr){notify('Заполните обязательные поля: Код курса, Профессия, Разряд','error');return;}
+  // дедуп: код курса уникален (кроме самой редактируемой записи)
+  const dup=S.elearning.find(r=>r.kodKursa===kod && r.id!==S.editId);
+  if(dup){notify(`Код курса «${kod}» уже используется (${dup.professiya}, ${dup.razryad})`,'error');return;}
+  const prev=S.editId?S.elearning.find(r=>r.id===S.editId):null;
+  const caV=gv('el_ca'), proshV=gv('el_prosh'), nomerV=gv('el_nomer');
+  const rec={
+    id:S.editId||genId(),
+    nomer:nomerV!==''?Number(nomerV):(prev?prev.nomer:''),
+    kodKursa:kod,professiya:prof,razryad:razr,
+    tselevayaAuditoriya:caV!==''?Number(caV):'',
+    predpriyatie:gv('el_pred'),divizion:gv('el_div'),
+    ssylkaRu:gv('el_lnkru'),ssylkaKz:gv('el_lnkkz'),
+    proshli:proshV!==''?Number(proshV):'',
+    status:gv('el_stat')||'Активен',
+    kommentarii:gv('el_kom'),
+    dataObnovleniyaStat:prev?prev.dataObnovleniyaStat:'',
+    createdAt:prev?prev.createdAt:new Date().toISOString(),
+    updatedAt:new Date().toISOString()
+  };
+  // если «прошли» изменилось — обновляем дату статистики
+  if(prev && Number(prev.proshli||0)!==Number(rec.proshli||0)){
+    rec.dataObnovleniyaStat=new Date().toISOString().slice(0,10);
+  }else if(!prev && rec.proshli!==''){
+    rec.dataObnovleniyaStat=new Date().toISOString().slice(0,10);
+  }
+  const wasEdit=!!S.editId;
+  closeMo();
+  try{
+    await dbUpsert('elearning',rec);
+    renderElearning();
+    notify(wasEdit?'Курс обновлён ✓':'Курс добавлен ✓','success');
+  }catch(e){notify('Ошибка сохранения: '+(e.message||e),'error');}
+}
+
+async function delElCourse(id){
+  if(!(await uiConfirm({title:'Удаление курса',text:'Удалить этот курс?',okText:'🗑️ Удалить',danger:true})))return;
+  closeMo();
+  await dbDelete('elearning',id);
+  renderElearning();
+  notify('Курс удалён');
+}
+
 
 // ── MOBILE SIDEBAR ─────────────────────────────────────────
 function toggleSidebar(){
